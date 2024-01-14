@@ -16,7 +16,7 @@ const types = [
 export default ({
     command(commit) {
         try {
-            return execSync(`git commit -m ${commit}`);
+            return execSync(`git commit -m "${commit}"`);
         } catch (err) {
             process.exit(1);
         }
