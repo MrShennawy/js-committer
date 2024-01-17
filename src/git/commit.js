@@ -16,6 +16,7 @@ const types = [
 export default ({
     command(commit) {
         try {
+            commit = commit.replaceAll('"', '')
             return execSync(`git commit -m "${commit}"`);
         } catch (err) {
             process.exit(1);
