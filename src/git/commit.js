@@ -13,6 +13,11 @@ const types = [
     {value: 'BUILD', short: 'BUILD', name: `${chalk.bold('BUILD:')} npm run build.`},
 ];
 
+const lastCommit = () => {
+    const log = execSync("git log --pretty=format:'%s'").toString().trim();
+    return[...process.argv].includes('-lc') ? log.split('\n')[0] : null;
+}
+
 export default ({
     command(commit) {
         try {
@@ -38,6 +43,7 @@ export default ({
     sentence: ({
         type: 'input',
         name: 'commit',
+        default: lastCommit(),
         prefix: `\n ${chalk.bold.red('❯')}`,
         suffix: "\n",
         message: 'Enter the commit sentence:',
