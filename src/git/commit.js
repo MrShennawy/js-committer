@@ -13,9 +13,24 @@ const types = [
     {value: 'BUILD', short: 'BUILD', name: `${chalk.bold('BUILD:')} npm run build.`},
 ];
 
-const lastCommit = () => {
-    const log = execSync("git log --pretty=format:'%s'").toString().trim();
-    return[...process.argv].includes('-lc') ? log.split('\n')[0] : null;
+const lastCommit = ({getType = false, getIssueId = false} = {}) => {
+    if(![...process.argv].includes('-lc')) return null;
+
+    try {
+        const log = execSync("git log --pretty=format:'%s'").toString().trim();
+        let lc = log.split('\n')[0].split(':');
+        let type = lc[0];
+        if(types.find(typ => typ.value === type)) {
+            lc.shift()
+            if(getType) return type;
+        }
+        const commit = lc.join().split('❯');
+        if(!getIssueId) return commit[0];
+        if(commit[1]) return commit[1];
+        return null;
+    } catch (err) {
+        process.exit(1);
+    }
 }
 
 export default ({
@@ -31,6 +46,7 @@ export default ({
         type: 'rawlist',
         pageSize: 10,
         name: 'type',
+        default: lastCommit({getType: true}),
         prefix: `\n ${chalk.bold.red('❯')}`,
         suffix: "\n",
         message: 'Select the desired commit type:',
@@ -55,6 +71,7 @@ export default ({
     issueId: ({
         type: 'input',
         name: 'issueId',
+        default: lastCommit({getIssueId: true}),
         prefix: `\n ${chalk.bold.red('❯')}`,
         suffix: "\n",
         message: 'Enter the issue ID: '+chalk.dim('(optional)'),
