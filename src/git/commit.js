@@ -1,6 +1,7 @@
 import {execSync} from "child_process";
 import chalk from "chalk";
 import RequiredError from "../exceptions/RequiredError.js";
+import {replaceArray} from "../support/helper.js";
 
 const types = [
     {value: 'FEATURE', short: 'FEATURE', name: `${chalk.bold('FEATURE:')} A new feature for the user.`},
@@ -36,7 +37,7 @@ const lastCommit = ({getType = false, getIssueId = false} = {}) => {
 export default ({
     command(commit) {
         try {
-            commit = commit.replaceAll('"', '')
+            commit = replaceArray(commit, ['"'], [''])
             return execSync(`git commit -m "${commit}"`);
         } catch (err) {
             process.exit(1);
