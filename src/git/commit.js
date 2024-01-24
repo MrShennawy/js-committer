@@ -59,6 +59,7 @@ export default ({
     }),
     sentence: ({
         type: 'input-editable-default',
+        hint: 'click tab to edit the commit',
         name: 'commit',
         default: lastCommit(),
         prefix: `\n ${chalk.bold.red('❯')}`,

@@ -53,7 +53,15 @@ export default class InputPrompt extends Base {
     let bottomContent = '';
     let appendContent = '';
     let message = this.getQuestion();
-    const { transformer } = this.opt;
+    const { transformer, hint } = this.opt;
+
+    if (hint) {
+      const messageSplinting = message.split('\n')
+      message = messageSplinting[1];
+      message += chalk.dim.bold(` (${hint}) \n`);
+      message += messageSplinting[2];
+    }
+
     const isFinal = this.status === 'answered';
 
     if (isFinal) {
@@ -115,8 +123,10 @@ export default class InputPrompt extends Base {
   }
 
   onTabKey() {
-    this.rl.line = this.opt.default.trim();
-    this.rl.cursor = this.opt.default.length;
+    if (this.opt.default) {
+      this.rl.line = this.opt.default.trim();
+      this.rl.cursor = this.opt.default.length;
+    }
     this.render();
   }
 
