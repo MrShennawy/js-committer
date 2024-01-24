@@ -58,7 +58,7 @@ export default ({
         }
     }),
     sentence: ({
-        type: 'input',
+        type: 'input-editable-default',
         name: 'commit',
         default: lastCommit(),
         prefix: `\n ${chalk.bold.red('❯')}`,
@@ -70,7 +70,7 @@ export default ({
         }
     }),
     issueId: ({
-        type: 'input',
+        type: 'input-editable-default',
         name: 'issueId',
         default: lastCommit({getIssueId: true}),
         prefix: `\n ${chalk.bold.red('❯')}`,

@@ -6,6 +6,7 @@ import inquirer from "inquirer";
 import chalk from "chalk";
 import push from "./git/push.js";
 import pull from "./git/pull.js";
+import InputPrompt from './prompts/input.js'
 
 greetings();
 
@@ -24,6 +25,8 @@ questions = [
     commit.sentence,
     commit.issueId
 ]
+
+inquirer.registerPrompt('input-editable-default', InputPrompt);
 
 const answers = await inquirer.prompt(questions)
 
