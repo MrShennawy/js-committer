@@ -26,8 +26,8 @@ const lastCommit = ({getType = false, getIssueId = false} = {}) => {
             if(getType) return type;
         }
         const commit = lc.join().split('❯');
-        if(!getIssueId) return commit[0];
-        if(commit[1]) return commit[1];
+        if(!getIssueId) return commit[0].trim();
+        if(commit[1]) return commit[1].trim();
         return null;
     } catch (err) {
         process.exit(1);

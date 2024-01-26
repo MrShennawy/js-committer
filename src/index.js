@@ -32,9 +32,9 @@ const answers = await inquirer.prompt(questions)
 
 if(answers.files !== undefined) files = answers.files.join(" ");
 
-const commitSentence = `${answers.type}: ${answers.commit}` + (answers.issueId ? ` ❯ ${answers.issueId}` : '');
+const commitSentence = `${answers.type}: ${answers.commit.trim()}` + (answers.issueId ? ` ❯ ${answers.issueId.trim()}` : '');
 
-console.log(`\n [ Your commit => ${chalk.green(commitSentence)} ] \n`)
+console.log(`\n [ Your commit => ${chalk.green(commitSentence)} ]\n`)
 
 await add.command(files)
 await commit.command(commitSentence)
