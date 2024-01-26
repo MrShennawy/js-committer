@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import {greetings} from "./misc/greetings.js";
 import add from "./git/add.js";
-import commit from "./git/commit.js";
+import commit, {commitLink} from "./git/commit.js";
 import inquirer from "inquirer";
 import chalk from "chalk";
 import push from "./git/push.js";
@@ -40,3 +40,4 @@ await add.command(files)
 await commit.command(commitSentence)
 await pull.command();
 await push.command();
+console.log(`\n [ Commit link => ${chalk.cyan(commitLink())} ] \n`)

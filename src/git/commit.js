@@ -34,6 +34,15 @@ const lastCommit = ({getType = false, getIssueId = false} = {}) => {
     }
 }
 
+export const commitLink = () => {
+    try {
+        const  linkCommand = `echo "https://$(git config --get remote.origin.url | sed -e 's/\\.git$//' -e 's/^git@//' -e 's/:/\\//' -e 's/^https\\/\\/\\///')/commit/$(git rev-parse HEAD)"`;
+        return execSync(linkCommand).toString().trim();
+    } catch (err) {
+        process.exit(1);
+    }
+}
+
 export default ({
     command(commit) {
         try {
