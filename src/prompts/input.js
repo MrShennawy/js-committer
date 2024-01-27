@@ -80,7 +80,7 @@ export default class InputPrompt extends Base {
       bottomContent = chalk.red('>> ') + error;
     }
 
-    this.screen.render(message, bottomContent);
+    this.screen.renderWithSpinner(message, bottomContent);
   }
 
   /**
