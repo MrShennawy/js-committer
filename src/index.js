@@ -9,6 +9,7 @@ import pull from "./git/pull.js";
 import InputPrompt from './prompts/input.js'
 
 greetings();
+inquirer.registerPrompt('default-editable-input', InputPrompt);
 
 let files = '.';
 
@@ -21,12 +22,11 @@ if([...process.argv].includes('-s')) {
 
 questions = [
     ...questions,
-    commit.type,
-    commit.sentence,
-    commit.issueId
+    commit.type(),
+    commit.sentence('ali'),
+    commit.issueId()
 ]
 
-inquirer.registerPrompt('input-editable-default', InputPrompt);
 
 const answers = await inquirer.prompt(questions)
 

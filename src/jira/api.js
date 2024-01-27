@@ -1,6 +1,5 @@
 import url from 'url';
 import _request from 'postman-request';
-import { readSettings } from '../store/handler.js';
 
 function request(uri, options) {
     return new Promise((resolve, reject) => {
@@ -34,6 +33,8 @@ export default class JiraApi {
     constructor(options) {
         this.protocol = options.protocol || 'http';
         this.host = options.host;
+        this.email = options.email;
+        this.token = options.token;
         this.apiVersion = options.apiVersion || '3';
         this.base = options.base || '';
         this.intermediatePath = options.intermediatePath;
@@ -43,10 +44,9 @@ export default class JiraApi {
         this.request = options.request || request;
         this.baseOptions = {};
 
-        const jiraData = readSettings('jira')
         this.baseOptions.headers = {
             sendImmediately: true,
-            Authorization: 'Basic '+Buffer.from(jiraData.email+':'+jiraData.token).toString('base64')
+            Authorization: 'Basic '+Buffer.from(this.email+':'+this.token).toString('base64')
         };
 
         if (options.timeout) {
@@ -159,7 +159,7 @@ export default class JiraApi {
      * @param {object} issueUpdate - update Object as specified by the rest api
      * @param {object} query - adds parameters to the query string
      */
-    updateIssue(issueId, issueUpdate, query = {}) {
+    updateIssue({issueId, issueUpdate, query = {}}) {
         return this.doRequest(this.makeRequestHeader(this.makeUri({
             pathname: `/issue/${issueId}`,
             query,

@@ -15,19 +15,19 @@ const types = [
 ];
 
 const lastCommit = ({getType = false, getIssueId = false} = {}) => {
-    if(![...process.argv].includes('-lc')) return null;
+    if (![...process.argv].includes('-lc')) return null;
 
     try {
         const log = execSync("git log --pretty=format:'%s'").toString().trim();
         let lc = log.split('\n')[0].split(':');
         let type = lc[0];
-        if(types.find(typ => typ.value === type)) {
+        if (types.find(typ => typ.value === type)) {
             lc.shift()
-            if(getType) return type;
+            if (getType) return type;
         }
         const commit = lc.join().split('❯');
-        if(!getIssueId) return commit[0].trim();
-        if(commit[1]) return commit[1].trim();
+        if (!getIssueId) return commit[0].trim();
+        if (commit[1]) return commit[1].trim();
         return null;
     } catch (err) {
         process.exit(1);
@@ -36,27 +36,19 @@ const lastCommit = ({getType = false, getIssueId = false} = {}) => {
 
 export const commitLink = () => {
     try {
-        const  linkCommand = `echo "https://$(git config --get remote.origin.url | sed -e 's/\\.git$//' -e 's/^git@//' -e 's/:/\\//' -e 's/^https\\/\\/\\///')/commit/$(git rev-parse HEAD)"`;
+        const linkCommand = `echo "https://$(git config --get remote.origin.url | sed -e 's/\\.git$//' -e 's/^git@//' -e 's/:/\\//' -e 's/^https\\/\\/\\///')/commit/$(git rev-parse HEAD)"`;
         return execSync(linkCommand).toString().trim();
     } catch (err) {
         process.exit(1);
     }
 }
 
-export default ({
-    command(commit) {
-        try {
-            commit = replaceArray(commit, ['"'], [''])
-            return execSync(`git commit -m "${commit}"`);
-        } catch (err) {
-            process.exit(1);
-        }
-    },
-    type: ({
+const type = (def = null) => {
+    return {
         type: 'rawlist',
         pageSize: 10,
         name: 'type',
-        default: lastCommit({getType: true}),
+        default: def ?? lastCommit({getType: true}),
         prefix: `\n ${chalk.bold.red('❯')}`,
         suffix: "\n",
         message: 'Select the desired commit type:',
@@ -65,12 +57,14 @@ export default ({
             if (!type) throw new RequiredError('You need to select type');
             return true;
         }
-    }),
-    sentence: ({
-        type: 'input-editable-default',
-        hint: 'click tab to edit the commit',
+    }
+}
+
+const sentence = (def = null) => {
+    return {
+        type: 'default-editable-input',
         name: 'commit',
-        default: lastCommit(),
+        default: def ?? lastCommit(),
         prefix: `\n ${chalk.bold.red('❯')}`,
         suffix: "\n",
         message: 'Enter the commit sentence:',
@@ -78,13 +72,32 @@ export default ({
             if (!commit) throw new RequiredError('The commit sentence is required');
             return true;
         }
-    }),
-    issueId: ({
-        type: 'input-editable-default',
+    }
+}
+
+const issueId = (def = null) => {
+    return {
+        type: 'default-editable-input',
         name: 'issueId',
-        default: lastCommit({getIssueId: true}),
+        default: def ?? lastCommit({getIssueId: true}),
         prefix: `\n ${chalk.bold.red('❯')}`,
         suffix: "\n",
-        message: 'Enter the issue ID: '+chalk.dim('(optional)'),
-    })
-})
+        message: 'Enter the issue ID: ' + chalk.dim('(optional)'),
+    }
+}
+
+const command = (commit) => {
+    try {
+        commit = replaceArray(commit, ['"'], [''])
+        return execSync(`git commit -m "${commit}"`);
+    } catch (err) {
+        process.exit(1);
+    }
+}
+
+export default {
+    command,
+    type,
+    sentence,
+    issueId
+}

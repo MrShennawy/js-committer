@@ -53,8 +53,9 @@ export default class InputPrompt extends Base {
     let bottomContent = '';
     let appendContent = '';
     let message = this.getQuestion();
-    const { transformer, hint } = this.opt;
 
+    if(this.opt.default && !this.opt.hint) this.opt.hint =  'Press TAB to edit the commit'
+    const { transformer, hint } = this.opt;
     if (hint) {
       const messageSplinting = message.split('\n')
       message = messageSplinting[1];
@@ -80,7 +81,7 @@ export default class InputPrompt extends Base {
       bottomContent = chalk.red('>> ') + error;
     }
 
-    this.screen.renderWithSpinner(message, bottomContent);
+    this.screen.render(message, bottomContent);
   }
 
   /**
