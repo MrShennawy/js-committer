@@ -5,8 +5,10 @@ import { dirname, join } from 'path';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-export function readSettings(fileName) {
+export const readSettings = (fileName) => {
     const filePath = join(__dirname, `${fileName}.json`);
+
+    if (!existsSync(filePath)) writeSettings(fileName, {})
 
     try {
         const data = readFileSync(filePath, 'utf8');
@@ -17,13 +19,11 @@ export function readSettings(fileName) {
     }
 }
 
-export function writeSettings(fileName, data) {
+export const writeSettings = (fileName, data) => {
     const filePath = join(__dirname, `${fileName}.json`);
     const folderPath = dirname(filePath);
 
-    if (!existsSync(folderPath)) {
-        mkdirSync(folderPath, { recursive: true });
-    }
+    if (!existsSync(folderPath)) mkdirSync(folderPath, { recursive: true });
 
     try {
         writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf8');

@@ -97,7 +97,6 @@ export default class JiraApi {
             ...requestOptions,
         };
 
-        try {
             const response = await this.request(options);
 
             if (response) {
@@ -107,6 +106,7 @@ export default class JiraApi {
             }
 
             return response;
+        try {
         } catch (e) {
             throw new Error(JSON.stringify(e));
         }

@@ -1,35 +1,33 @@
 import JiraApi from './api.js';
 import { readSettings } from '../store/handler.js';
 
-const jiraData = readSettings('jira')
-
-const jira = new JiraApi({
-    protocol: 'https',
-    host: jiraData.host,
-    email: jiraData.email,
-    token: jiraData.token,
-    strictSSL: true
-});
-
-const getCurrentUser = () => {
-    return jira.getCurrentUser()
+const setCredential = () => {
+    const {host, email, token} = readSettings('jira');
+    return new JiraApi({
+        protocol: 'https',
+        host,
+        email,
+        token,
+        strictSSL: true
+    });
 }
 
-const findIssue = (issueNumber, fields) => {
-    return jira.findIssue({issueNumber, fields})
+const withJira = (callback) => {
+    const jira = setCredential();
+    return callback(jira);
 }
 
-const updateIssue = (issueId, fields) => {
-    return jira.updateIssue({issueId, issueUpdate: fields});
-}
+const getCurrentUser = () => withJira((jira) => jira.getCurrentUser());
 
-const addNewIssue = (fields) => {
-    return jira.addNewIssue(fields);
-}
+const findIssue = (issueNumber, fields) => withJira((jira) => jira.findIssue({issueNumber, fields}));
+
+const updateIssue = (issueId, fields) => withJira((jira) => jira.updateIssue({issueId, issueUpdate: fields}));
+
+const addNewIssue = (fields) => withJira((jira) => jira.addNewIssue(fields));
 
 export {
+    getCurrentUser,
     findIssue,
     addNewIssue,
     updateIssue,
-    getCurrentUser
 }

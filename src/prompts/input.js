@@ -58,7 +58,7 @@ export default class InputPrompt extends Base {
     const { transformer, hint } = this.opt;
     if (hint) {
       const messageSplinting = message.split('\n')
-      message = messageSplinting[1];
+      message = '\n' + messageSplinting[1];
       message += chalk.dim.bold(` (${hint}) \n`);
       message += messageSplinting[2];
     }
