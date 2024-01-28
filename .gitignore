@@ -4,3 +4,4 @@ node_modules/
 src/test.js
 src/store/*.json
 .idea/
+.DS_Store
