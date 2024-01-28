@@ -8,7 +8,7 @@ export default async () => {
     const issueData = await jiraQuestions()
 
     const questions = [
-        commit.type(issueData?.issuetype?.name === 'Fix' ? 'FIX': 'FEATURE'),
+        commit.type(issueData?.issuetype?.name === 'Fix' ? 'FIX': null),
         commit.sentence(issueData?.summary),
     ]
 

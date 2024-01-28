@@ -8,8 +8,9 @@ import chalk from "chalk";
 
 const getIssueData = async () => {
     const answers = await inquirer.prompt(commit.issueId())
-    let issueData = {};
+    console.error();
     let spinner = ora('Getting Issue data').start();
+    let issueData = {};
     await findIssue(answers.issueId, 'summary,issuetype')
         .then(issue => {
             issueData = {issueId: answers.issueId, ...issue.fields};

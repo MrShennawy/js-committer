@@ -9,7 +9,7 @@ import pull from "./git/pull.js";
 import files from "./questions/files.js";
 import {updateIssueCommitLink} from "./questions/jira.js";
 import {readSettings} from "./store/handler.js";
-import questions from "./jira/questions.js";
+
 greetings();
 
 const addFiles = await files();
@@ -20,9 +20,11 @@ console.log(`\n [ Your commit => ${chalk.green(commitSentence)} ]\n`)
 
 await add.command(addFiles)
 await commit.command(commitSentence)
-await pull.command();
+
+await pull.command()
+
 await push.command();
 
 const jiraCredential = readSettings('jira')
-if (commit.issueId && jiraCredential.verified)
-    await updateIssueCommitLink(commit.issueId, {customfield_10046: commitLink()})
+if (commitData.issueId && jiraCredential.verified)
+    await updateIssueCommitLink(commitData.issueId, {customfield_10046: commitLink()})

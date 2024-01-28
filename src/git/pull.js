@@ -1,11 +1,20 @@
-import {execSync} from "child_process";
+import {exec} from "child_process";
+import ora from "ora";
+const command = () => {
+    const spinner = ora('Pulling... \n').start();
+    return new Promise((resolve, reject) => {
+        exec('git pull').on('close', code => {
+            if (code !== 0) {
+                spinner.fail()
+                reject();
+                process.exit(1);
+            }
+            spinner.succeed()
+            resolve();
+        });
+    });
+}
 
 export default ({
-    command() {
-        try {
-            return execSync(`git pull`);
-        } catch (err) {
-            process.exit(1);
-        }
-    },
+    command,
 })
