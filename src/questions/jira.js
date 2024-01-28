@@ -25,6 +25,8 @@ const getIssueData = async () => {
 }
 
 export const updateIssueCommitLink = async(issueNumber, issueData) => {
+    const jiraCredential = readSettings('jira')
+    if(!jiraCredential.verified) return;
     let spinner = ora('Updating issue').start();
     await updateIssue(issueNumber, {fields: issueData})
         .then(issue => {

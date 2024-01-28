@@ -29,9 +29,13 @@ export const writeSettings = (fileName, data) => {
         writeFileSync(filePath, JSON.stringify(data, null, 4), 'utf8');
     } catch (error) {
         if (error.code === 'EACCES') {
-            console.error(chalk.bgYellow.black(` The package cannot read or update ${fileName} file `));
+            console.error(chalk.bgYellow.black(` The package is unable to read or update the 'store' folder `));
             console.log()
-            console.log(`Execute ${chalk.cyan(`sudo chown -R $(whoami) ${folderPath}`)} to enable the package to save and read credentials.`)
+            if (["linux", "darwin"].includes(process.platform)) {
+                console.log(`Execute ${chalk.cyan(`sudo chown -R $(whoami) ${folderPath}`)} to enable the package to save and read credentials.`)
+            } else {
+                console.log(`Change the ownership of the ${chalk.cyan(folderPath)} folder to your user.`);
+            }
             console.log()
             process.exit(1);
         }

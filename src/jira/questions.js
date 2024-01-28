@@ -22,7 +22,7 @@ export const checkCredential = async () => {
 }
 
 export default async () => {
-    console.log(chalk.black.bgYellow(' For the initial setup, please enter Jira credentials. '))
+    console.log(chalk.inverse(' For the initial setup, please enter Jira credentials. '))
 
     const questions = [
         {
