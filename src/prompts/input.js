@@ -53,11 +53,12 @@ export default class InputPrompt extends Base {
     let bottomContent = '';
     let appendContent = '';
     let message = this.getQuestion();
-    const { transformer, hint } = this.opt;
 
+    if(this.opt.default && !this.opt.hint) this.opt.hint =  'Press TAB to edit the commit'
+    const { transformer, hint } = this.opt;
     if (hint) {
       const messageSplinting = message.split('\n')
-      message = messageSplinting[1];
+      message = '\n' + messageSplinting[1];
       message += chalk.dim.bold(` (${hint}) \n`);
       message += messageSplinting[2];
     }
