@@ -44,4 +44,4 @@ You can also see the list of [contributors](https://github.com/mrshennawy/commit
 
 ## License
 
-This project is licensed under the MIT License. See the file [LICENSE.md](LICENSE.md) for details.  
+This project is licensed under the MIT License. See the file [LICENSE](LICENSE) for details.  

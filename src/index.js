@@ -15,7 +15,7 @@ const addFiles = await files();
 const commitData = await sentence();
 const commitSentence = `${commitData.type}: ${commitData.sentence}` + (commitData.issueId ? ` ❯ ${commitData.issueId}` : '');
 
-console.log(`\n [ Your commit => ${chalk.green(commitSentence)} ]\n`)
+console.log(`\n [ Your commit => ${chalk.green(commitSentence)} ]`)
 
 await add.command(addFiles)
 await commit.command(commitSentence)
@@ -27,5 +27,5 @@ await push.command();
 if (commitData.issueId && [...process.argv].includes('-jr')) {
     await updateIssueCommitLink(commitData.issueId, {customfield_10046: commitLink()})
 } else {
-    console.log(`[ Commit link => ${chalk.cyan(commitLink())} ] \n`)
+    console.log(`\n[ Commit link => ${chalk.cyan(commitLink())} ] \n`)
 }
