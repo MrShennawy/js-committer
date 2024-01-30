@@ -22,10 +22,10 @@ await commit.command(commitSentence)
 
 await pull.command()
 
-await push.command();
+const pushStatus = await push.command();
 
 if (commitData.issueId && [...process.argv].includes('-jr')) {
     await updateIssueCommitLink(commitData.issueId, {customfield_10046: commitLink()})
 } else {
-    console.log(`\n[ Commit link => ${chalk.cyan(commitLink())} ] \n`)
+    if(pushStatus) console.log(`\n[ Commit link => ${chalk.cyan(commitLink())} ] \n`)
 }

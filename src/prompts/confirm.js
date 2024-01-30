@@ -60,7 +60,7 @@ export default class ConfirmPrompt extends Base {
     let message = this.getQuestion();
 
     if (typeof answer === 'boolean') {
-      message += chalk.cyan(answer ? 'Yes' : 'No') + '\n';
+      message += chalk.cyan(answer ? 'Yes' : 'No');
     } else if (answer) {
       message += answer;
     } else {

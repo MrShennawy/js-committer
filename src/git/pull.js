@@ -12,7 +12,7 @@ const askForPull = () =>{
             type: 'enhanced-confirm',
             name: 'runPull',
             prefix: `\n ${chalk.bold.red('❯')}`,
-            message: `Run ${chalk.bold.cyan('git pull')} to fetch the latest changes before pushing the code ?`,
+            message: `Run ${chalk.bold.cyan('git pull')} ?`,
             default: false
         }
     ]);

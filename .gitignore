@@ -1,7 +1,7 @@
 # Dependency directories
-node_modules/
-.git/
-src/test.js
-src/store/*.json
-.idea/
+/node_modules
+/.git
+/src/test.js
+/src/store/*.json
+/.idea
 .DS_Store
