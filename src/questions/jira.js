@@ -30,6 +30,7 @@ export const updateIssueCommitLink = async(issueNumber, issueData) => {
     let spinner = ora('Updating issue').start();
     await updateIssue(issueNumber, {fields: issueData})
         .then(issue => {
+            spinner.text = chalk.green('The issue has been updated');
             spinner.succeed()
         })
         .catch(err => {

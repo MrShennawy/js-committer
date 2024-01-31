@@ -11,11 +11,12 @@ export const checkCredential = async () => {
     console.log()
     let spinner = ora('Check jira credential').start();
     await getCurrentUser().then(user => {
+            spinner.text = chalk.green('The credential has been verified');
             spinner.succeed()
         })
         .catch(err => {
+            spinner.text = chalk.red('Sorry, the credentials provided are not correct');
             spinner.fail()
-            console.log(chalk.black.bgRedBright(' Sorry, the credentials provided are not correct '))
             writeSettings('jira', {})
             process.exit(1);
         });
