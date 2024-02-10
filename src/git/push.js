@@ -18,6 +18,9 @@ const askForPush = () =>{
 const command = async () => {
     const pullAnswer = await askForPush();
     if(!pullAnswer.runPush) return false;
+
+    console.log()
+
     const spinner = ora('Pushing... \n').start();
     return new Promise((resolve, reject) => {
         exec('git push').on('close', code => {

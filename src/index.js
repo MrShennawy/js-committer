@@ -15,7 +15,7 @@ const addFiles = await files();
 const commitData = await sentence();
 const commitSentence = `${commitData.type}: ${commitData.sentence}` + (commitData.issueId ? ` ❯ ${commitData.issueId}` : '');
 
-console.log(`\n [ Your commit => ${chalk.green(commitSentence)} ]`)
+console.log(`\n [ Your commit => ${chalk.green(commitSentence)} ] \n`)
 
 await add.command(addFiles)
 await commit.command(commitSentence)

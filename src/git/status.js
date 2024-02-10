@@ -11,19 +11,16 @@ const statuses = {
 };
 
 export default ({
-    command() {
+    command(short = false) {
         try {
-            return execSync("git status -s").toString().trim();
+            return execSync(`git status ${short ? '-s' : ''}`).toString().trim();
         } catch (err) {
             process.exit(1);
-            // const data = Buffer.from(err.output[2]);
-            // const decodedData = data.toString("utf8");
-            // console.log(decodedData);
         }
     },
     async handleFiles() {
         let selectFiles = [];
-        let files = this.command().split("\n");
+        let files = this.command(true).split("\n");
         files.forEach(file => {
             let lineTrim = file.trim();
             let lineArr = lineTrim.split(" ");

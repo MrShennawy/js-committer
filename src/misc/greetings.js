@@ -12,7 +12,7 @@ export const greetings = () => {
                                                                 `));
 
     // check repo Files status
-    if(status.command() === '') {
+    if(status.command().includes('nothing to commit')) {
         console.log(chalk.black.bgYellowBright.bold('Nothing to commit, working tree clean', "\n"));
         process.exit(1);
     }
