@@ -1,4 +1,4 @@
-import {exec} from "child_process";
+import {exec, execSync} from "child_process";
 import ora from "ora";
 import chalk from "chalk";
 import inquirer from "inquirer";
@@ -15,6 +15,13 @@ const askForPush = () =>{
     ]);
 }
 
+const pushCommand = () => {
+    const currentBranch = execSync('git branch --show-current').toString().trim();
+    const remoteBranch = execSync(`git ls-remote --heads origin ${currentBranch}`).toString().trim();
+    if(!remoteBranch) return `git push --set-upstream origin ${currentBranch}`;
+    return `git push origin ${currentBranch}`;
+}
+
 const command = async () => {
     const pullAnswer = await askForPush();
     if(!pullAnswer.runPush) return false;
@@ -23,7 +30,7 @@ const command = async () => {
 
     const spinner = ora('Pushing... \n').start();
     return new Promise((resolve, reject) => {
-        exec('git push').on('close', code => {
+        exec(pushCommand()).on('close', code => {
             if (code !== 0) {
                 spinner.text = chalk.red('Push (FAILED)');
                 spinner.fail()
