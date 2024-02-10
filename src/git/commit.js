@@ -14,8 +14,8 @@ const types = [
     {value: 'BUILD', short: 'BUILD', name: `${chalk.bold('BUILD:')} npm run build.`},
 ];
 
-const lastCommit = ({getType = false, getIssueId = false} = {}) => {
-    if (![...process.argv].includes('-lc')) return null;
+const lastCommit = ({getType = false, getIssueId = false, avoidArg = false} = {}) => {
+    if (![...process.argv].includes('-lc') && !avoidArg) return null;
 
     try {
         const log = execSync("git log --pretty=format:'%s'").toString().trim();
@@ -99,5 +99,6 @@ export default {
     command,
     type,
     sentence,
-    issueId
+    issueId,
+    lastCommit
 }

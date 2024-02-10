@@ -2,6 +2,7 @@ import {exec, execSync} from "child_process";
 import ora from "ora";
 import chalk from "chalk";
 import inquirer from "inquirer";
+import branch from "./branch.js";
 
 const askForPush = () =>{
     return inquirer.prompt([
@@ -16,7 +17,7 @@ const askForPush = () =>{
 }
 
 const pushCommand = () => {
-    const currentBranch = execSync('git branch --show-current').toString().trim();
+    const currentBranch = branch.command('--show-current');
     const remoteBranch = execSync(`git ls-remote --heads origin ${currentBranch}`).toString().trim();
     if(!remoteBranch) return `git push --set-upstream origin ${currentBranch}`;
     return `git push origin ${currentBranch}`;
