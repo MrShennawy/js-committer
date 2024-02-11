@@ -14,11 +14,12 @@ const types = [
     {value: 'BUILD', short: 'BUILD', name: `${chalk.bold('BUILD:')} npm run build.`},
 ];
 
-const lastCommit = ({getType = false, getIssueId = false, avoidArg = false} = {}) => {
+const lastCommit = ({getType = false, getIssueId = false, full = false, avoidArg = false} = {}) => {
     if (![...process.argv].includes('-lc') && !avoidArg) return null;
 
     try {
         const log = execSync("git log --pretty=format:'%s'").toString().trim();
+        if(full) return log.split('\n')[0];
         let lc = log.split('\n')[0].split(':');
         let type = lc[0];
         if (types.find(typ => typ.value === type)) {

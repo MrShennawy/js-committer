@@ -4,24 +4,36 @@ import branch from "../git/branch.js";
 import commit, {commitLink} from "../git/commit.js";
 import DrawsBoxes from "./DrawsBoxes.js";
 
+const greetingsBox = ({body, info, color = 'gray'}) => {
+    const box = (new DrawsBoxes).box({
+        title: 'Committer',
+        body,
+        color,
+        info,
+    });
+    console.log(box)
+}
+
 export const greetings = () => {
+    // check repo Files status
+    if(status.command().includes('nothing to commit')) {
+        greetingsBox({
+            body: chalk.black.bgYellowBright.bold(' Nothing to commit, working tree clean '),
+            color: 'yellow'
+        })
+        process.exit(1);
+    }
+
     const changesList = status.command(true).trim();
+    const changesCount = changesList ? changesList.split("\n").length : 0;
     const boxContent = [
         '',
         `${chalk.yellow('Branch:')} ${branch.command('--show-current')}`,
-        `${chalk.yellow('Last commit:')} ${commit.lastCommit({avoidArg: true})}`
+        `${chalk.yellow('Last commit:')} ${commit.lastCommit({full: true, avoidArg: true})}`
     ];
-    const box = (new DrawsBoxes).box({
-        title: 'Committer',
+
+    greetingsBox({
         body: boxContent.join('\n'),
-        info: changesList ? chalk.redBright(`${status.command(true).trim().split("\n").length} Changes`) : null
+        info: changesList ? chalk.redBright(`${changesCount} Change${changesCount > 1 ? 's' : ''}`) : null
     });
-
-    console.log(box);
-
-    // check repo Files status
-    if(status.command().includes('nothing to commit')) {
-        console.log(chalk.black.bgYellowBright.bold(' Nothing to commit, working tree clean', "\n"));
-        process.exit(1);
-    }
 }
