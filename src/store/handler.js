@@ -1,13 +1,11 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
-import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import chalk from "chalk";
+import os from 'os';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
+const __committerConfiguration = `${os.homedir()}/.committer-configuration`;
 export const readSettings = (fileName) => {
-    const filePath = join(__dirname, `${fileName}.json`);
+    const filePath = join(__committerConfiguration, `${fileName}.json`);
 
     if (!existsSync(filePath)) writeSettings(fileName, {})
 
@@ -21,7 +19,7 @@ export const readSettings = (fileName) => {
 }
 
 export const writeSettings = (fileName, data) => {
-    const filePath = join(__dirname, `${fileName}.json`);
+    const filePath = join(__committerConfiguration, `${fileName}.json`);
     const folderPath = dirname(filePath);
 
     try {
