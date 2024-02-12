@@ -4,11 +4,12 @@ import branch from "../git/branch.js";
 import commit, {commitLink} from "../git/commit.js";
 import DrawsBoxes from "./DrawsBoxes.js";
 
-const greetingsBox = ({body, info, color = 'gray'}) => {
+const greetingsBox = ({body, info, hint, color = 'gray'}) => {
     const box = (new DrawsBoxes).box({
-        title: 'Committer',
+        title: chalk.bold('Committer'),
         body,
         color,
+        hint,
         info,
     });
     console.log(box)
@@ -18,8 +19,8 @@ export const greetings = () => {
     // check repo Files status
     if(status.command().includes('nothing to commit')) {
         greetingsBox({
-            body: chalk.black.bgYellowBright.bold(' Nothing to commit, working tree clean '),
-            color: 'yellow'
+            body: chalk.yellow('Nothing to commit, working tree clean '),
+            color: 'yellow',
         })
         process.exit(1);
     }

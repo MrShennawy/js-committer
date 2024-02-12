@@ -52,7 +52,7 @@ export default class DrawsBoxes {
             info ? (width - this.strLen(this.stripEscapeSequences(info))) : (width + 2)
         )+(info ? ` ${info} ` : '')+'┘'));
 
-        message += chalk.gray(`\n  ${hint}`);
+        if (hint) message += chalk.gray(`\n  ${hint}`);
 
         return message;
     }
