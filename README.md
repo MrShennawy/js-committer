@@ -35,6 +35,9 @@ After installing the package, you can use it by running the command `gc`.
     <p align="center">
       <img width="600" src="docs/assets/committer-gclc.svg">
     </p>
+  
+    - `-b`: For run build command then push the updates in one step. It can be used as `gc -b`.
+    - `-jr`: Integrate Committer with jira. It can be used as `gc -jr`.
 
 ## Authors
 
