@@ -11,7 +11,7 @@ const types = [
     {value: 'STYLE', short: 'STYLE', name: `${chalk.bold('STYLE:')} Code style changes (whitespace, formatting).`},
     {value: 'REFACTOR', short: 'REFACTOR', name: `${chalk.bold('REFACTOR:')} Code changes that neither fix a bug nor add a feature.`},
     {value: 'TEST', short: 'TEST', name: `${chalk.bold('TEST:')} Adding or modifying tests.`},
-    {value: 'BUILD', short: 'BUILD', name: `${chalk.bold('BUILD:')} npm run build.`},
+    {value: 'BUILD', short: 'BUILD', name: `${chalk.bold('BUILD:')} example: npm run build.`},
 ];
 
 const lastCommit = ({getType = false, getIssueId = false, full = false, avoidArg = false} = {}) => {
@@ -83,7 +83,12 @@ const issueId = (def = null) => {
         default: def ?? lastCommit({getIssueId: true}),
         prefix: `\n ${chalk.bold.red('❯')}`,
         suffix: "\n",
-        message: 'Enter the issue ID: ' + chalk.dim('(optional)'),
+        message: 'Enter the issue ID: ' +  (![...process.argv].includes('-jr') ? chalk.dim('(optional)') : ''),
+        validate: (issueId) => {
+            if([...process.argv].includes('-jr') && !issueId)
+                throw new RequiredError('Issue id is required');
+            return true;
+        }
     }
 }
 

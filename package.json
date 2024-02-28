@@ -13,7 +13,8 @@
     "node": ">=14.16"
   },
   "bin": {
-    "gc": "src/index.js"
+    "gc": "src/index.js",
+    "wgc": "src/index.js"
   },
   "dependencies": {
     "chalk": "^5.3.0",

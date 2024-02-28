@@ -17,7 +17,7 @@ const greetingsBox = ({body, info, hint, color = 'gray'}) => {
 
 export const greetings = () => {
     // check repo Files status
-    if(status.command().includes('nothing to commit')) {
+    if(status.command().includes('nothing to commit') && ![...process.argv].includes('-b')) {
         greetingsBox({
             body: chalk.yellow('Nothing to commit, working tree clean '),
             color: 'yellow',
