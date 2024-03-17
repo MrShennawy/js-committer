@@ -24,20 +24,20 @@ sudo npm i @shennawy/committer -g
 
 ## Usage
 
-After installing the package, you can use it by running the command `gc`.
-- The `gc` command supports the following options:
-    - `-s`: This option allows to select the files before committing. It can be used as `gc -s`.
+After installing the package, you can use it by running the command `cmt`.
+- The `cmt` command supports the following options:
+    - `-s`: This option allows to select the files before committing. It can be used as `cmt -s`.
     <p align="center">
       <img width="600" src="docs/assets/committer-gcs.svg">
     </p>
   
-    - `-lc`: This option retrieves the last commit and sets it as the default commit. It can be used as `gc -lc`. 
+    - `-lc`: This option retrieves the last commit and sets it as the default commit. It can be used as `cmt -lc`. 
     <p align="center">
       <img width="600" src="docs/assets/committer-gclc.svg">
     </p>
   
-    - `-b`: For run build command then push the updates in one step. It can be used as `gc -b`.
-    - `-jr`: Integrate Committer with jira. It can be used as `gc -jr`.
+    - `-b`: For run build command then push the updates in one step. It can be used as `cmt -b`.
+    - `-jr`: Integrate Committer with jira. It can be used as `cmt -jr`.
 
 ## Authors
 
