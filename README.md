@@ -6,7 +6,7 @@
 __Committer__ is a package that streamlines the process of crafting standard Git commit messages, assisting developers in maintaining a consistent and clean commit history..
 
 <p align="center">
-  <img width="600" src="docs/assets/committer-gc.svg">
+  <img width="600" src="docs/assets/cmt.svg">
 </p>
 
 ## Table of Contents
@@ -27,17 +27,10 @@ sudo npm i @shennawy/committer -g
 After installing the package, you can use it by running the command `cmt`.
 - The `cmt` command supports the following options:
     - `-s`: This option allows to select the files before committing. It can be used as `cmt -s`.
-    <p align="center">
-      <img width="600" src="docs/assets/committer-gcs.svg">
-    </p>
-  
-    - `-lc`: This option retrieves the last commit and sets it as the default commit. It can be used as `cmt -lc`. 
-    <p align="center">
-      <img width="600" src="docs/assets/committer-gclc.svg">
-    </p>
-  
+    - `-lc`: This option retrieves the last commit and sets it as the default commit. It can be used as `cmt -lc`.  
     - `-b`: For run build command then push the updates in one step. It can be used as `cmt -b`.
     - `-jr`: Integrate Committer with jira. It can be used as `cmt -jr`.
+      - It will automatically get the issue title
 
 ## Authors
 
