@@ -3,7 +3,7 @@ import questions from "../jira/questions.js"
 import commit from "../git/commit.js";
 import {readSettings} from '../store/handler.js';
 import ora from "ora";
-import {findIssue, updateIssue} from "../jira/handler.js";
+import {findIssue, addComment} from "../jira/handler.js";
 import chalk from "chalk";
 
 const getIssueData = async () => {
@@ -24,17 +24,18 @@ const getIssueData = async () => {
     return issueData;
 }
 
-export const updateIssueCommitLink = async(issueNumber, issueData) => {
+export const updateIssueCommitLink = async(issueNumber, commentBody) => {
     const jiraCredential = readSettings('jira')
     if(!jiraCredential.verified) return;
     let spinner = ora('Updating issue').start();
-    await updateIssue(issueNumber, {fields: issueData})
+    await addComment(issueNumber, commentBody)
         .then(issue => {
             spinner.text = chalk.green('The issue has been updated');
             spinner.succeed()
         })
         .catch(err => {
             spinner.fail()
+            console.log(err);
             console.error('\n' + chalk.bgYellow.black(err.errorMessages));
             process.exit(1);
         });

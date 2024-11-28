@@ -23,6 +23,8 @@ const findIssue = (issueNumber, fields) => withJira((jira) => jira.findIssue({is
 
 const updateIssue = (issueId, fields) => withJira((jira) => jira.updateIssue({issueId, issueUpdate: fields}));
 
+const addComment = (issueId, commentBody) => withJira((jira) => jira.addComment(issueId, commentBody));
+
 const addNewIssue = (fields) => withJira((jira) => jira.addNewIssue(fields));
 
 export {
@@ -30,4 +32,5 @@ export {
     findIssue,
     addNewIssue,
     updateIssue,
+    addComment
 }

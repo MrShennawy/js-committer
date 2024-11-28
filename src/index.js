@@ -31,7 +31,36 @@ await pull.command()
 const pushStatus = await push.command();
 
 if (commitData.issueId && [...process.argv].includes('-jr')) {
-    await updateIssueCommitLink(commitData.issueId, {customfield_10046: commitLink()})
+    const bodyData = {
+        type: "doc",
+        version: 1,
+        content: [
+            {
+                type: "paragraph",
+                content: [
+                    {
+                        type: "text",
+                        text: "(Commit link)",
+                        marks: [
+                            {
+                                type: "link",
+                                attrs: {
+                                    href: commitLink(),
+                                    title: "Commit link"
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        type: "text",
+                        text: `: ${commitData.sentence}`,
+                    }
+                ]
+            }
+        ]
+    };
+
+    await updateIssueCommitLink(commitData.issueId, bodyData)
 } else {
     if(pushStatus) console.log(`\n[ Commit link => ${chalk.cyan(commitLink())} ] \n`)
 }

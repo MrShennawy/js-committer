@@ -23,6 +23,7 @@ function request(uri, options) {
  * @class
  * Wrapper for the JIRA Rest Api
  * https://docs.atlassian.com/jira/REST/6.4.8/
+ * https://github.com/jira-node/node-jira-client/blob/f9102bbe3969185a92834f48076c65aa9c5d0be4/src/jira.js
  */
 export default class JiraApi {
     /**
@@ -166,6 +167,25 @@ export default class JiraApi {
         }), {
             body: issueUpdate,
             method: 'PUT',
+            followAllRedirects: true,
+        }));
+    }
+
+    /** Add a comment to an issue
+     * [Jira Doc](https://docs.atlassian.com/jira/REST/latest/#id108798)
+     * @name addComment
+     * @function
+     * @param {string} issueId - Issue to add a comment to
+     * @param {string} comment - string containing comment
+     */
+    addComment(issueId, comment) {
+        return this.doRequest(this.makeRequestHeader(this.makeUri({
+            pathname: `/issue/${issueId}/comment`,
+        }), {
+            body: {
+                body: comment,
+            },
+            method: 'POST',
             followAllRedirects: true,
         }));
     }
