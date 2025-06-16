@@ -9,6 +9,7 @@ import pull from "./git/pull.js";
 import files from "./questions/files.js";
 import {updateIssueCommitLink} from "./questions/jira.js";
 import build from "./questions/build.js";
+import {generateCommitMessage} from "./ai/GoogleGenerativeAI.js";
 
 greetings();
 
@@ -19,7 +20,8 @@ let commitData = await build();
 if(![...process.argv].includes('-b'))
     commitData = await sentence();
 
-const commitSentence = `${commitData.type}: ${commitData.sentence}` + (commitData.issueId ? ` ❯ ${commitData.issueId}` : '');
+// const commitSentence = `${commitData.type}: ${commitData.sentence}` + (commitData.issueId ? ` ❯ ${commitData.issueId}` : '');
+const commitSentence = `${commitData.type}: ${generateCommitMessage}` + (commitData.issueId ? ` ❯ ${commitData.issueId}` : '');
 
 console.log(`\n [ Your commit => ${chalk.green(commitSentence)} ] \n`)
 
