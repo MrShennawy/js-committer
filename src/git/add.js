@@ -2,9 +2,30 @@ import status from "./status.js";
 import {execSync} from "child_process";
 import RequiredError from "../exceptions/RequiredError.js";
 import chalk from "chalk";
+import inquirer from "inquirer";
+import ConfirmPrompt from "../prompts/confirm.js";
 
-const command = (files) => {
+inquirer.registerPrompt('enhanced-confirm', ConfirmPrompt);
+
+const askForCommit = () =>{
+    return inquirer.prompt([
+        {
+            type: 'enhanced-confirm',
+            name: 'runAddCommit',
+            prefix: `${chalk.bold.red('❯')}`,
+            message: `Do you want to use this commit message?`,
+            default: true
+        }
+    ]);
+}
+
+const command = async (files) => {
+
     try {
+        const commitAnswer = await askForCommit();
+        if (!commitAnswer.runAddCommit)
+            process.exit(1);
+
         return execSync(`git add ${files}`);
     } catch (err) {
         process.exit(1);
