@@ -24,10 +24,10 @@ export const generateCommitMessage = async (commitType, summary = null) => {
         Details: ${mainTask}
         Git Diff: ${diff}
         Instructions:
-            - Generate a clear, professional git commit message.
-            - Combine key changes from the git diff and the Jira summary (if provided).
-            - Use the format: "${commitType}: <message>"
-            - Limit to 10 words maximum, one line, no additional description.
+        - Generate a clear, professional git commit message.
+        - Combine key changes from the git diff and the Jira summary (if provided).
+        - Use the format: "${commitType}: <message>"
+        - Limit to 10 words maximum, one line, no additional description.
     `;
 
     let result = { response: null }
