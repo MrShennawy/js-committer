@@ -10,57 +10,66 @@ import files from "./questions/files.js";
 import {updateIssueCommitLink} from "./questions/jira.js";
 import build from "./questions/build.js";
 
-greetings();
+async function main() {
+    greetings();
+    process.on('SIGINT', () => {
+        console.log('Exiting gracefully...');
+        process.exit(0);
+    });
 
-const addFiles = await files();
+    const addFiles = await files();
+    let commitData = await build();
 
-let commitData = await build();
+    if(![...process.argv].includes('-b'))
+        commitData = await sentence();
 
-if(![...process.argv].includes('-b'))
-    commitData = await sentence();
+    const commitSentence = `${commitData.sentence}` + (commitData.issueId ? ` ❯ ${commitData.issueId}` : '');
 
-const commitSentence = `${commitData.sentence}` + (commitData.issueId ? ` ❯ ${commitData.issueId}` : '');
+    console.log(`\n [ Your commit => ${chalk.green(commitSentence)} ] \n`)
 
-console.log(`\n [ Your commit => ${chalk.green(commitSentence)} ] \n`)
+    await add.command(addFiles)
+    await commit.command(commitSentence)
+    await pull.command()
 
-await add.command(addFiles)
-await commit.command(commitSentence)
+    const pushStatus = await push.command();
 
-await pull.command()
-
-const pushStatus = await push.command();
-
-if (commitData.issueId && [...process.argv].includes('-jr')) {
-    const bodyData = {
-        type: "doc",
-        version: 1,
-        content: [
-            {
-                type: "paragraph",
-                content: [
-                    {
-                        type: "text",
-                        text: "(Commit link)",
-                        marks: [
-                            {
-                                type: "link",
-                                attrs: {
-                                    href: commitLink(),
-                                    title: "Commit link"
+    if (commitData.issueId && [...process.argv].includes('-jr')) {
+        const bodyData = {
+            type: "doc",
+            version: 1,
+            content: [
+                {
+                    type: "paragraph",
+                    content: [
+                        {
+                            type: "text",
+                            text: "(Commit link)",
+                            marks: [
+                                {
+                                    type: "link",
+                                    attrs: {
+                                        href: commitLink(),
+                                        title: "Commit link"
+                                    }
                                 }
-                            }
-                        ]
-                    },
-                    {
-                        type: "text",
-                        text: `: ${commitData.sentence}`,
-                    }
-                ]
-            }
-        ]
-    };
+                            ]
+                        },
+                        {
+                            type: "text",
+                            text: `: ${commitData.sentence}`,
+                        }
+                    ]
+                }
+            ]
+        };
 
-    await updateIssueCommitLink(commitData.issueId, bodyData)
-} else {
-    if(pushStatus) console.log(`\n[ Commit link => ${chalk.cyan(commitLink())} ] \n`)
+        await updateIssueCommitLink(commitData.issueId, bodyData)
+    } else {
+        if(pushStatus) console.log(`\n[ Commit link => ${chalk.cyan(commitLink())} ] \n`)
+    }
 }
+
+main().catch(err => {
+    console.error('Error:', err);
+    process.exit(1);
+});

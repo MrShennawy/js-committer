@@ -9,7 +9,7 @@ export default async () => {
     const issueData = await jiraQuestions()
     const askForType = await inquirer.prompt([commit.type(issueData?.issuetype?.name === 'Fix' ? 'FIX': null)])
 
-    const commitMsg = await generateCommitMessage(askForType.type);
+    const commitMsg = await generateCommitMessage(askForType.type, issueData?.summary);
     const askForCommit = await inquirer.prompt([commit.sentence(commitMsg)])
 
     const questions = []
@@ -18,6 +18,7 @@ export default async () => {
     const output = {
         type: askForType.type,
         sentence: askForCommit.commit.trim(),
+        issueId: issueData?.issueId
     }
     if(questions.length) {
         const answers = await inquirer.prompt(questions)

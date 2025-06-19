@@ -6,7 +6,7 @@ import RequiredError from "../exceptions/RequiredError.js";
 import {readSettings, writeSettings} from "../store/handler.js";
 import ora from "ora";
 
-export const generateCommitMessage = async (commitType) => {
+export const generateCommitMessage = async (commitType, summary = null) => {
     let {apiKey} = readSettings('GoogleGenerativeAI')
     if(!apiKey)
         apiKey = await storeApiKey()
@@ -16,13 +16,19 @@ export const generateCommitMessage = async (commitType) => {
 
     const spinner = ora('Content generation ... \n').start();
     const diff = gitDiff.command()
-    let prompt;
-    prompt = `
-        You are a serious AI that helps generate git commit messages.
-        Commit type: ${commitType}
-        Details: ${diff}
-        Generate a professional, concise git commit message. Limit the response to a maximum of 10 words.
-        `;
+    let mainTask = summary ? ` Jira Summary: ${summary}` : 'No summary provided';
+
+    let prompt = `
+        You are an expert AI specializing in crafting concise, professional git commit messages.
+        Commit Type: ${commitType}
+        Details: ${mainTask}
+        Git Diff: ${diff}
+        Instructions:
+        - Generate a clear, professional git commit message.
+        - Combine key changes from the git diff and the Jira summary (if provided).
+        - Use the format: "${commitType}: <message>"
+        - Limit to 10 words maximum, one line, no additional description.
+    `;
 
     let result = { response: null }
     try {
@@ -38,7 +44,6 @@ export const generateCommitMessage = async (commitType) => {
 
     return result.response?.text();
 };
-
 const storeApiKey = async () => {
     const answers = await inquirer.prompt([
         {
