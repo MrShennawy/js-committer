@@ -6,7 +6,7 @@
 __Committer__ is a package that streamlines the process of crafting standard Git commit messages, assisting developers in maintaining a consistent and clean commit history.
 
 <p align="center">
-  <img width="600" src="docs/assets/cmt.svg">
+  <img width="600" src="docs/assets/ai.svg">
 </p>
 
 ## Table of Contents
