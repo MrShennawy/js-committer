@@ -19,15 +19,19 @@ export const generateCommitMessage = async (commitType, summary = null) => {
     let mainTask = summary ? ` Jira Summary: ${summary}` : 'No summary provided';
 
     let prompt = `
-        You are an expert AI specializing in crafting concise, professional git commit messages.
-        Commit Type: ${commitType}
-        Details: ${mainTask}
-        Git Diff: ${diff}
+        You are an AI specialized in generating clear, professional git commit messages.
+        
+        Context:
+        - Commit Type: ${commitType}
+        - Task Summary: ${mainTask}
+        - Git Diff: ${diff}
+        
         Instructions:
-        - Generate a clear, professional git commit message.
-        - Combine key changes from the git diff and the Jira summary (if provided).
-        - Use the format: "${commitType}: <message>"
-        - Limit to 10 words maximum, one line, no additional description.
+        - Write a single-line git commit message.
+        - Focus on clarity and completeness over word count (no hard limit).
+        - Combine key changes from the diff and task summary (if provided).
+        - Format: "${commitType}: <message>"
+        - Avoid unnecessary jargon, keep it easy to read and understand.
     `;
 
     let result = { response: null }
