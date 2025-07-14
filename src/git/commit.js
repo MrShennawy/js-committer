@@ -4,14 +4,15 @@ import RequiredError from "../exceptions/RequiredError.js";
 import {replaceArray} from "../support/helper.js";
 
 const types = [
-    {value: 'FEATURE', short: 'FEATURE', name: `${chalk.bold('FEATURE:')} A new feature for the user.`},
-    {value: 'FIX', short: 'FIX', name: `${chalk.bold('FIX:')} A bug fix for the user.`},
-    {value: 'CHORE', short: 'CHORE', name: `${chalk.bold('CHORE:')} Routine tasks, maintenance, or refactors.`},
-    {value: 'DOCS', short: 'DOCS', name: `${chalk.bold('DOCS:')} Documentation changes.`},
-    {value: 'STYLE', short: 'STYLE', name: `${chalk.bold('STYLE:')} Code style changes (whitespace, formatting).`},
-    {value: 'REFACTOR', short: 'REFACTOR', name: `${chalk.bold('REFACTOR:')} Code changes that neither fix a bug nor add a feature.`},
-    {value: 'TEST', short: 'TEST', name: `${chalk.bold('TEST:')} Adding or modifying tests.`},
-    {value: 'BUILD', short: 'BUILD', name: `${chalk.bold('BUILD:')} example: npm run build.`},
+    {value: 'feat', short: 'feat', name: `${chalk.bold('feat:')} A new feature for the user.`},
+    {value: 'fix', short: 'fix', name: `${chalk.bold('fix:')} A bug fix for the user.`},
+    {value: 'docs', short: 'docs', name: `${chalk.bold('docs:')} Documentation only changes.`},
+    {value: 'style', short: 'style', name: `${chalk.bold('style:')} Changes that do not affect the meaning of the code.`},
+    {value: 'refactor', short: 'refactor', name: `${chalk.bold('refactor:')} A code change that neither fixes a bug nor adds a feature.`},
+    {value: 'perf', short: 'perf', name: `${chalk.bold('perf:')} A code change that improves performance.`},
+    {value: 'test', short: 'test', name: `${chalk.bold('test:')} Adding missing tests or correcting existing tests.`},
+    {value: 'build', short: 'build', name: `${chalk.bold('build:')} Changes that affect the build system or external dependencies.`},
+    {value: 'chore', short: 'chore', name: `${chalk.bold('chore:')} Other changes that don't modify src or test files.`},
 ];
 
 const lastCommit = ({getType = false, getIssueId = false, full = false, avoidArg = false} = {}) => {

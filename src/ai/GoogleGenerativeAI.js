@@ -58,8 +58,42 @@ export const generateCommitMessage = async (commitType, summary = null) => {
         Generate ONLY the commit message, no additional text or explanations.
     `;
 
+    // Smart fallback function for when AI generation fails
+    const generateFallbackMessage = () => {
+        // Try to create a meaningful message based on available context
+        const baseMessage = `${commitType}: `;
+
+        // If we have a summary, use it to create a better fallback
+        if (summary && summary.trim()) {
+            const cleanSummary = summary.trim()
+                .toLowerCase()
+                .replace(/[^\w\s-]/g, '') // Remove special chars except hyphens
+                .replace(/\s+/g, ' ') // Normalize spaces
+                .substring(0, 50); // Keep it concise
+
+            return `${baseMessage}${cleanSummary}`;
+        }
+
+        // Generate contextual messages based on commit type
+        const typeBasedMessages = {
+            'feat': 'add new feature implementation',
+            'fix': 'resolve issue in codebase',
+            'refactor': 'improve code structure and organization',
+            'docs': 'update project documentation',
+            'style': 'improve code formatting and style',
+            'test': 'add or update test coverage',
+            'chore': 'update build process or dependencies',
+            'perf': 'improve application performance',
+            'ci': 'update continuous integration configuration',
+            'build': 'update build system or dependencies'
+        };
+
+        const defaultMessage = typeBasedMessages[commitType] || 'update project files';
+        return `${baseMessage}${defaultMessage}`;
+    };
+
     let result = { response: null }
-    let commitMessage = "<CHANGE ME>";
+    let commitMessage = generateFallbackMessage();
     try {
         result = await model.generateContent(prompt);
         commitMessage = result.response?.text().trim();
