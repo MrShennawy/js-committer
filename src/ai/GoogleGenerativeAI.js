@@ -19,19 +19,43 @@ export const generateCommitMessage = async (commitType, summary = null) => {
     let mainTask = summary ? ` Jira Summary: ${summary}` : 'No summary provided';
 
     let prompt = `
-        You are an AI specialized in generating clear, professional git commit messages.
+        You are an expert at writing conventional git commit messages that follow industry best practices.
         
-        Context:
+        CONTEXT:
         - Commit Type: ${commitType}
         - Task Summary: ${mainTask}
-        - Git Diff: ${diff}
+        - Git Diff Changes:
+        ${diff}
         
-        Instructions:
-        - Write a single-line git commit message.
-        - Focus on clarity and completeness over word count (no hard limit).
-        - Combine key changes from the diff and task summary (if provided).
-        - "Format: '${commitType}: <message>' — do not use backticks in git commits; always use single quotes instead."
-        - Avoid unnecessary jargon, keep it easy to read and understand.
+        TASK:
+        Generate a single-line git commit message that accurately describes the changes shown in the git diff.
+        
+        REQUIREMENTS:
+        1. Format: "${commitType}: <concise description of what was changed>"
+        2. Use present tense, imperative mood (e.g., "add", "fix", "update", not "added", "fixed", "updated")
+        3. Start the description with a lowercase letter
+        4. No period at the end
+        5. Be specific about WHAT was changed, not just WHERE
+        6. If task summary is provided, incorporate relevant context but prioritize the actual code changes
+        7. Maximum 72 characters total (including the commit type)
+        8. Use single quotes for strings, never backticks
+        
+        EXAMPLES:
+        - feat: add user authentication middleware
+        - fix: resolve memory leak in image processing
+        - refactor: extract validation logic into separate module
+        - docs: update API endpoint documentation
+        - style: improve button spacing and colors
+        - test: add unit tests for payment validation
+        
+        ANALYSIS PRIORITY:
+        1. Focus on the most significant changes in the diff
+        2. If multiple files changed, mention the primary change or group related changes
+        3. For bug fixes, mention what was broken
+        4. For features, mention what functionality was added
+        5. For refactoring, mention what was improved or reorganized
+        
+        Generate ONLY the commit message, no additional text or explanations.
     `;
 
     let result = { response: null }
