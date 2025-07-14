@@ -12,7 +12,7 @@ export const generateCommitMessage = async (commitType, summary = null) => {
         apiKey = await storeApiKey()
 
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-lite" });
 
     const spinner = ora('Content generation ... \n').start();
     const diff = gitDiff.command()
@@ -35,18 +35,20 @@ export const generateCommitMessage = async (commitType, summary = null) => {
     `;
 
     let result = { response: null }
+    let commitMessage = "<CHANGE ME>";
     try {
         result = await model.generateContent(prompt);
+        commitMessage = result.response?.text().trim();
         spinner.text = chalk.green('Content generated.');
         spinner.succeed();
     } catch (err) {
         spinner.fail();
         handleError(err)
         await writeSettings('GoogleGenerativeAI', {apiKey: null});
-        process.exit(1);
+        // process.exit(1);
     }
 
-    return result.response?.text();
+    return commitMessage;
 };
 const storeApiKey = async () => {
     const answers = await inquirer.prompt([
@@ -68,7 +70,7 @@ const storeApiKey = async () => {
 }
 
 
-const handleError = (err) => {
+const handleError = async (err) => {
     let errorMessage = 'An unknown error occurred.';
 
     if (err.errorDetails && Array.isArray(err.errorDetails)) {
@@ -77,6 +79,7 @@ const handleError = (err) => {
                 errorMessage = detail.message;
                 break;
             } else if (detail.reason === 'API_KEY_INVALID') {
+                await writeSettings('GoogleGenerativeAI', {apiKey: null});
                 errorMessage = 'API key not valid. Please pass a valid API key.';
                 break;
             }
