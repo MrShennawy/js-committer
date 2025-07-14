@@ -30,7 +30,7 @@ export const generateCommitMessage = async (commitType, summary = null) => {
         - Write a single-line git commit message.
         - Focus on clarity and completeness over word count (no hard limit).
         - Combine key changes from the diff and task summary (if provided).
-        - Format: "${commitType}: <message>"
+        - "Format: '${commitType}: <message>' — do not use backticks in git commits; always use single quotes instead."
         - Avoid unnecessary jargon, keep it easy to read and understand.
     `;
 
@@ -53,7 +53,7 @@ const storeApiKey = async () => {
         {
             type: 'default-editable-input',
             name: 'key',
-            hint: `From ❯ ${chalk.cyan('https://console.cloud.google.com/apis/credentials')}`,
+            hint: `From ❯ ${chalk.cyan('https://aistudio.google.com/app/apikey')}`,
             prefix: `\n ${chalk.bold.red('❯')}`,
             suffix: "\n",
             message: 'Enter Google API Key:',
