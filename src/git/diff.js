@@ -1,8 +1,8 @@
 import {execSync} from "child_process";
 
-const command = (args) => {
+const command = (files) => {
     try {
-        return execSync(`git diff`).toString().trim();
+        return execSync(`git diff ${files}`).toString().trim();
     } catch (err) {
         process.exit(1);
     }

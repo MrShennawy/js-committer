@@ -21,7 +21,7 @@ async function main() {
     let commitData = await build();
 
     if(![...process.argv].includes('-b'))
-        commitData = await sentence();
+        commitData = await sentence(addFiles);
 
     const commitSentence = `${commitData.sentence}` + (commitData.issueId ? ` ❯ ${commitData.issueId}` : '');
 

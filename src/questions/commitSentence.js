@@ -5,11 +5,11 @@ import jiraQuestions from './jira.js'
 inquirer.registerPrompt('default-editable-input', InputPrompt);
 import {generateCommitMessage} from "../ai/GoogleGenerativeAI.js";
 
-export default async () => {
+export default async (files = '.') => {
     const issueData = await jiraQuestions()
     const askForType = await inquirer.prompt([commit.type(issueData?.issuetype?.name === 'Fix' ? 'FIX': null)])
 
-    const commitMsg = await generateCommitMessage(askForType.type, issueData?.summary);
+    const commitMsg = await generateCommitMessage(askForType.type, issueData?.summary, files);
     const askForCommit = await inquirer.prompt([commit.sentence(commitMsg)])
 
     const questions = []

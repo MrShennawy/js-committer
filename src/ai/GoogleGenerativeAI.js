@@ -6,7 +6,7 @@ import RequiredError from "../exceptions/RequiredError.js";
 import {readSettings, writeSettings} from "../store/handler.js";
 import ora from "ora";
 
-export const generateCommitMessage = async (commitType, summary = null) => {
+export const generateCommitMessage = async (commitType, summary = null, files = '.') => {
     let {apiKey} = readSettings('GoogleGenerativeAI')
     if(!apiKey)
         apiKey = await storeApiKey()
@@ -15,7 +15,7 @@ export const generateCommitMessage = async (commitType, summary = null) => {
     const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-lite" });
 
     const spinner = ora('Content generation ... \n').start();
-    const diff = gitDiff.command()
+    const diff = gitDiff.command(files)
     let mainTask = summary ? ` Jira Summary: ${summary}` : 'No summary provided';
 
     let prompt = `
@@ -102,12 +102,28 @@ export const generateCommitMessage = async (commitType, summary = null) => {
     } catch (err) {
         spinner.fail();
         handleError(err)
-        await writeSettings('GoogleGenerativeAI', {apiKey: null});
+        const removeKeyAnswer = await askForRemoveApiKey();
+        if(removeKeyAnswer.removeApiKey)
+            await writeSettings('GoogleGenerativeAI', {apiKey: null});
         // process.exit(1);
     }
 
     return commitMessage;
 };
+
+const askForRemoveApiKey = () =>{
+    return inquirer.prompt([
+        {
+            type: 'enhanced-confirm',
+            name: 'removeApiKey',
+            prefix: `\n ${chalk.bold.red('❯')}`,
+            message: `Do you want to remove the current ${chalk.bold.cyan('Google API key')}?`,
+            default: false
+        }
+    ]);
+}
+
+
 const storeApiKey = async () => {
     const answers = await inquirer.prompt([
         {
