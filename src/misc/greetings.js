@@ -1,8 +1,9 @@
 import chalk from "chalk";
 import status from "../git/status.js";
 import branch from "../git/branch.js";
-import commit, {commitLink} from "../git/commit.js";
+import commit from "../git/commit.js";
 import DrawsBoxes from "./DrawsBoxes.js";
+import flags from "../support/args.js";
 
 const greetingsBox = ({body, info, hint, color = 'gray'}) => {
     const box = (new DrawsBoxes).box({
@@ -12,29 +13,31 @@ const greetingsBox = ({body, info, hint, color = 'gray'}) => {
         hint,
         info,
     });
-    console.log(box)
+    console.log(box);
 }
 
 export const greetings = () => {
-    // check repo Files status
-    if(status.command().includes('nothing to commit') && ![...process.argv].includes('-b')) {
+    // Uses the porcelain output rather than git's English status text, so the
+    // check keeps working under any locale.
+    if (status.isClean() && !flags.build) {
         greetingsBox({
             body: chalk.yellow('Nothing to commit, working tree clean '),
             color: 'yellow',
-        })
-        process.exit(1);
+        });
+        process.exit(0);
     }
 
-    const changesList = status.command(true).trim();
-    const changesCount = changesList ? changesList.split("\n").length : 0;
+    const changesCount = status.changesCount();
+    const lastCommit = commit.lastCommit({full: true, avoidArg: true});
+
     const boxContent = [
         '',
-        `${chalk.yellow('Branch:')} ${branch.command('--show-current')}`,
-        `${chalk.yellow('Last commit:')} ${commit.lastCommit({full: true, avoidArg: true})}`
+        `${chalk.yellow('Branch:')} ${branch.current()}`,
+        `${chalk.yellow('Last commit:')} ${lastCommit ?? chalk.dim('none yet')}`,
     ];
 
     greetingsBox({
         body: boxContent.join('\n'),
-        info: changesList ? chalk.redBright(`${changesCount} Change${changesCount > 1 ? 's' : ''}`) : null
+        info: changesCount ? chalk.redBright(`${changesCount} Change${changesCount > 1 ? 's' : ''}`) : null,
     });
 }

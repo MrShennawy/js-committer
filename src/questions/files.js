@@ -1,18 +1,17 @@
-import inquirer from "inquirer";
+import inquirer from "../prompts/register.js";
 import add from "../git/add.js";
+import flags from "../support/args.js";
 
+/**
+ * Resolves which paths to stage.
+ * Returns an array so the paths can be passed to git as separate arguments,
+ * which keeps names containing spaces intact.
+ *
+ * @returns {Promise<string[]>}
+ */
 export default async () => {
-    if(![...process.argv].includes('-s')) return '.';
+    if (!flags.selectFiles) return ['.'];
 
-    let files = '.';
-
-    let questions = [];
-    const filesQuestion = await add.files()
-    questions.push(filesQuestion)
-
-    if([...process.argv].includes('-s')) {
-    }
-
-    const answers = await inquirer.prompt(questions)
-    return answers.files.join(" ");
+    const answers = await inquirer.prompt([await add.files()]);
+    return answers.files;
 }

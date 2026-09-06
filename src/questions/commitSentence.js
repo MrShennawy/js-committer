@@ -1,28 +1,33 @@
-import inquirer from "inquirer";
-import InputPrompt from "../prompts/input.js";
+import inquirer from "../prompts/register.js";
 import commit from "../git/commit.js";
-import jiraQuestions from './jira.js'
-inquirer.registerPrompt('default-editable-input', InputPrompt);
+import jiraQuestions from './jira.js';
 import {generateCommitMessage} from "../ai/GoogleGenerativeAI.js";
 
-export default async (files = '.') => {
-    const issueData = await jiraQuestions()
-    const askForType = await inquirer.prompt([commit.type(issueData?.issuetype?.name === 'Fix' ? 'FIX': null)])
+/**
+ * Asks everything needed to build the commit subject.
+ * @param {string[]} paths - the paths that are about to be staged
+ */
+export default async (paths = ['.']) => {
+    const issueData = await jiraQuestions();
 
-    const commitMsg = await generateCommitMessage(askForType.type, issueData?.summary, files);
-    const askForCommit = await inquirer.prompt([commit.sentence(commitMsg)])
+    const {type} = await inquirer.prompt([
+        commit.type(issueData?.issuetype?.name === 'Fix' ? 'fix' : null)
+    ]);
 
-    const questions = []
+    const suggestion = await generateCommitMessage(type, issueData?.summary, paths);
+    const {commit: message} = await inquirer.prompt([commit.sentence(suggestion)]);
 
-    if(!issueData?.issueId) questions.push(commit.issueId())
     const output = {
-        type: askForType.type,
-        sentence: askForCommit.commit.trim(),
-        issueId: issueData?.issueId
+        type,
+        sentence: message.trim(),
+        issueId: issueData?.issueId ?? null,
+    };
+
+    // Only ask for an issue id when Jira did not already provide one.
+    if (!output.issueId) {
+        const answers = await inquirer.prompt([commit.issueId()]);
+        output.issueId = answers.issueId?.trim() || null;
     }
-    if(questions.length) {
-        const answers = await inquirer.prompt(questions)
-        output.issueId = issueData?.issueId ?? answers.issueId.trim();
-    }
+
     return output;
 }

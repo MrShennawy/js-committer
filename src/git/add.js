@@ -1,13 +1,10 @@
-import status from "./status.js";
-import {execSync} from "child_process";
-import RequiredError from "../exceptions/RequiredError.js";
 import chalk from "chalk";
-import inquirer from "inquirer";
-import ConfirmPrompt from "../prompts/confirm.js";
+import inquirer from "../prompts/register.js";
+import status from "./status.js";
+import RequiredError from "../exceptions/RequiredError.js";
+import git from "../support/git.js";
 
-inquirer.registerPrompt('enhanced-confirm', ConfirmPrompt);
-
-const askForCommit = () =>{
+const askForCommit = () => {
     return inquirer.prompt([
         {
             type: 'enhanced-confirm',
@@ -19,21 +16,27 @@ const askForCommit = () =>{
     ]);
 }
 
-const command = async (files) => {
+/**
+ * Confirms the message with the user and stages the selected paths.
+ * Paths are passed as separate arguments, so names containing spaces or
+ * shell metacharacters are staged correctly.
+ *
+ * @param {string[]} paths
+ */
+const command = async (paths = ['.']) => {
+    const commitAnswer = await askForCommit();
 
-    try {
-        const commitAnswer = await askForCommit();
-        if (!commitAnswer.runAddCommit)
-            process.exit(1);
-
-        return execSync(`git add ${files}`);
-    } catch (err) {
-        process.exit(1);
+    // Declining is a normal cancellation, not a failure.
+    if (!commitAnswer.runAddCommit) {
+        console.log(chalk.dim('\nAborted, nothing was committed.\n'));
+        process.exit(0);
     }
+
+    return git(['add', '--', ...paths]);
 }
 
-const files =  async () => {
-    const files = await status.handleFiles();
+const files = async () => {
+    const choices = await status.handleFiles();
     return {
         type: 'checkbox',
         pageSize: 10,
@@ -42,9 +45,9 @@ const files =  async () => {
         prefix: `\n ${chalk.bold.red('❯')}`,
         suffix: "\n",
         message: 'select the files: ',
-        choices: files,
-        validate: (files) => {
-            if(!files.length) throw new RequiredError('You need to select at least one file');
+        choices,
+        validate: (selected) => {
+            if (!selected.length) throw new RequiredError('You need to select at least one file');
             return true;
         }
     }

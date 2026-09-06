@@ -1,47 +1,55 @@
-import inquirer from "inquirer";
 import ora from "ora";
 import chalk from "chalk";
-import RequiredError from "../exceptions/RequiredError.js";
 import {exec} from "child_process";
+import inquirer from "../prompts/register.js";
+import RequiredError from "../exceptions/RequiredError.js";
+import flags from "../support/args.js";
 
-const command = async () => {
-    const question =  {
+const askForCommand = async () => {
+    const answers = await inquirer.prompt([{
         type: 'default-editable-input',
         name: 'command',
         default: 'npm run build',
         prefix: `\n ${chalk.bold.red('❯')}`,
         suffix: "\n",
         message: 'Enter the build command:',
-        validate: (commit) => {
-            if (!commit) throw new RequiredError('The build command is required');
+        validate: (value) => {
+            if (!value) throw new RequiredError('The build command is required');
             return true;
         }
-    }
-    const answers = await inquirer.prompt([question])
+    }]);
+
     return answers.command.trim();
 }
 
-const runBuildCommand = async (cmd) => {
+// The build command is written by the user for their own shell, so it is run
+// through a shell on purpose.
+const runBuildCommand = (cmd) => {
     const spinner = ora('Build... \n').start();
+
     return new Promise((resolve, reject) => {
-        exec(cmd).on('close', code => {
-            if (code !== 0) {
+        exec(cmd, (error, stdout, stderr) => {
+            if (error) {
                 spinner.text = chalk.red('Build (FAILED)');
-                spinner.fail()
-                reject();
-                process.exit(1);
+                spinner.fail();
+                if (stderr?.trim()) console.error(stderr.trim());
+                reject(error);
+                return;
             }
+
             spinner.text = chalk.green('Build (DONE)');
-            spinner.succeed()
+            spinner.succeed();
             resolve(true);
         });
     });
 }
 
 export default async () => {
-    if (![...process.argv].includes('-b')) return null;
-    const cmd = await command()
-    await runBuildCommand(await cmd)
+    if (!flags.build) return null;
+
+    const cmd = await askForCommand();
+    await runBuildCommand(cmd);
+
     return {
         type: 'BUILD',
         sentence: cmd,

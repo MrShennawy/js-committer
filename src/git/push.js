@@ -1,10 +1,11 @@
-import {exec, execSync} from "child_process";
+import {execFile} from "child_process";
 import ora from "ora";
 import chalk from "chalk";
-import inquirer from "inquirer";
+import inquirer from "../prompts/register.js";
 import branch from "./branch.js";
+import git from "../support/git.js";
 
-const askForPush = () =>{
+const askForPush = () => {
     return inquirer.prompt([
         {
             type: 'enhanced-confirm',
@@ -16,31 +17,33 @@ const askForPush = () =>{
     ]);
 }
 
-const pushCommand = () => {
-    const currentBranch = branch.command('--show-current');
-    const remoteBranch = execSync(`git ls-remote --heads origin ${currentBranch}`).toString().trim();
-    if(!remoteBranch) return `git push --set-upstream origin ${currentBranch}`;
-    return `git push origin ${currentBranch}`;
+/** Sets the upstream on the first push of a branch, pushes normally after that. */
+const pushArgs = () => {
+    const currentBranch = branch.current();
+    const remoteBranch = git(['ls-remote', '--heads', 'origin', currentBranch], {allowFail: true});
+
+    if (!remoteBranch) return ['push', '--set-upstream', 'origin', currentBranch];
+    return ['push', 'origin', currentBranch];
 }
 
 const command = async () => {
-    const pullAnswer = await askForPush();
-    if(!pullAnswer.runPush) return false;
+    const pushAnswer = await askForPush();
+    if (!pushAnswer.runPush) return false;
 
-    console.log()
+    console.log();
 
     const spinner = ora('Pushing... \n').start();
     return new Promise((resolve, reject) => {
-        exec(pushCommand()).on('close', code => {
-            if (code !== 0) {
-                spinner.text = chalk.red('Push (FAILED)');
-                spinner.fail()
-                reject();
-                process.exit(1);
-
+        execFile('git', pushArgs(), (error, stdout, stderr) => {
+            if (error) {
+                spinner.text = chalk.red(`Push (FAILED): ${stderr?.trim() || error.message}`);
+                spinner.fail();
+                reject(error);
+                return;
             }
+
             spinner.text = chalk.green('Push (DONE)');
-            spinner.succeed()
+            spinner.succeed();
             resolve(true);
         });
     });

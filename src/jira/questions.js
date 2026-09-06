@@ -1,29 +1,29 @@
-import {readSettings, writeSettings} from '../store/handler.js';
 import chalk from "chalk";
-import RequiredError from "../exceptions/RequiredError.js";
-import inquirer from "inquirer";
-import InputPrompt from "../prompts/input.js";
 import ora from "ora";
+import inquirer from "../prompts/register.js";
+import {writeSettings} from '../store/handler.js';
+import RequiredError from "../exceptions/RequiredError.js";
 import {getCurrentUser} from "./handler.js";
-inquirer.registerPrompt('default-editable-input', InputPrompt);
 
 export const checkCredential = async () => {
-    console.log()
-    let spinner = ora('Check jira credential').start();
-    await getCurrentUser().then(user => {
-            spinner.text = chalk.green('The credential has been verified');
-            spinner.succeed()
-        })
-        .catch(err => {
-            spinner.text = chalk.red('Sorry, the credentials provided are not correct');
-            spinner.fail()
-            writeSettings('jira', {})
-            process.exit(1);
-        });
+    console.log();
+    const spinner = ora('Check jira credential').start();
+
+    try {
+        await getCurrentUser();
+        spinner.text = chalk.green('The credential has been verified');
+        spinner.succeed();
+    } catch (err) {
+        spinner.text = chalk.red('Sorry, the credentials provided are not correct');
+        spinner.fail();
+        console.error(chalk.dim(err.message));
+        writeSettings('jira', {});
+        process.exit(1);
+    }
 }
 
 export default async () => {
-    console.log(chalk.inverse(' For the initial setup, please enter Jira credentials. '))
+    console.log(chalk.inverse(' For the initial setup, please enter Jira credentials. '));
 
     const questions = [
         {
@@ -33,8 +33,8 @@ export default async () => {
             suffix: "\n",
             hint: `Example: ${chalk.yellow('somehost.atlassian.net')}`,
             message: 'Enter Jira host:',
-            validate: (commit) => {
-                if (!commit) throw new RequiredError('Jira host is required');
+            validate: (host) => {
+                if (!host) throw new RequiredError('Jira host is required');
                 return true;
             }
         },
@@ -44,8 +44,8 @@ export default async () => {
             prefix: `\n ${chalk.bold.red('❯')}`,
             suffix: "\n",
             message: 'Enter your Jira email:',
-            validate: (commit) => {
-                if (!commit) throw new RequiredError('your Jira email is required');
+            validate: (email) => {
+                if (!email) throw new RequiredError('your Jira email is required');
                 return true;
             }
         },
@@ -56,15 +56,21 @@ export default async () => {
             prefix: `\n ${chalk.bold.red('❯')}`,
             suffix: "\n",
             message: 'Enter Jira api token:',
-            validate: (commit) => {
-                if (!commit) throw new RequiredError('Api token is required');
+            validate: (token) => {
+                if (!token) throw new RequiredError('Api token is required');
                 return true;
             }
         }
-    ]
+    ];
 
-    const answers = await inquirer.prompt(questions)
-    await writeSettings('jira', answers);
+    const answers = await inquirer.prompt(questions);
+
+    // The host is stored without a scheme or trailing slash.
+    answers.host = answers.host.trim().replace(/^https?:\/\//, '').replace(/\/+$/, '');
+    answers.email = answers.email.trim();
+    answers.token = answers.token.trim();
+
+    writeSettings('jira', answers);
     await checkCredential();
-    await writeSettings('jira', {...answers, verified: true});
+    writeSettings('jira', {...answers, verified: true});
 }

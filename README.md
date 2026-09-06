@@ -45,10 +45,12 @@ The package provides the `cmt` command with several powerful options:
 ```bash
     cmt # Start the interactive commit process
     cmt -s # Start commit process with file selection
-    cmt -lc # Use last commit message.
-    cmt -b # Build and commit
+    cmt -lc # Prefill the prompts from the last commit
+    cmt -b # Run a build command first, then commit
     cmt -jr # Commit with JIRA integration
 ```
+
+The flags can be combined, for example `cmt -s -b -jr`.
 
 
 ## Configuration

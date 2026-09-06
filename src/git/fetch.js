@@ -1,24 +1,23 @@
-import {exec} from "child_process";
+import {execFile} from "child_process";
 import ora from "ora";
-import inquirer from "inquirer";
 import chalk from "chalk";
-import ConfirmPrompt from "../prompts/confirm.js";
 
-inquirer.registerPrompt('enhanced-confirm', ConfirmPrompt);
-
-const command = async () => {
+/** Runs `git fetch`, showing a spinner while it works. */
+const command = () => {
     const spinner = ora('Fetching... \n').start();
+
     return new Promise((resolve, reject) => {
-        exec('git fetch').on('close', code => {
-            if (code !== 0) {
-                spinner.text = chalk.red('Fetch (FAILED)');
-                spinner.fail()
-                reject();
-                process.exit(1);
+        execFile('git', ['fetch'], (error, stdout, stderr) => {
+            if (error) {
+                spinner.text = chalk.red(`Fetch (FAILED): ${stderr?.trim() || error.message}`);
+                spinner.fail();
+                reject(error);
+                return;
             }
+
             spinner.text = chalk.green('Fetched (DONE)');
-            spinner.succeed()
-            resolve();
+            spinner.succeed();
+            resolve(stdout.trim());
         });
     });
 }

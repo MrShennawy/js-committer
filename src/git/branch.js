@@ -1,13 +1,11 @@
-import {execSync} from "child_process";
+import git from "../support/git.js";
 
-const command = (args) => {
-    try {
-        return execSync(`git branch ${args}`).toString().trim();
-    } catch (err) {
-        process.exit(1);
-    }
-}
+const command = (...args) => git(['branch', ...args]);
+
+/** Name of the branch that is currently checked out. */
+const current = () => git(['rev-parse', '--abbrev-ref', 'HEAD']);
 
 export default {
     command,
+    current,
 }

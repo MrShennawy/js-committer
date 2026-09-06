@@ -1,7 +1,12 @@
 import chalk from "chalk";
 
+// process.stdout.columns is undefined when the output is piped or redirected,
+// which used to make every width NaN and collapse the box borders.
+const DEFAULT_COLUMNS = 80;
+const terminalWidth = () => process.stdout.columns || DEFAULT_COLUMNS;
+
 export default class DrawsBoxes {
-    minWidth = Math.min(60, (process.stdout.columns - 6));
+    minWidth = Math.max(20, Math.min(60, terminalWidth() - 6));
 
     stripEscapeSequences(text) {
         text = text.replace(/\x1b[^m]*m/g, '');

@@ -1,203 +1,148 @@
-import url from 'url';
-import _request from 'postman-request';
-
-function request(uri, options) {
-    return new Promise((resolve, reject) => {
-        _request(uri, options, (err, httpResponse) => {
-            if (err) {
-                reject(err);
-            } else {
-                if (httpResponse.statusCode >= 400) {
-                    reject(httpResponse.body);
-                }
-
-                // for compatibility with request-promise
-                resolve(httpResponse.body);
-            }
-        });
-    });
-}
-
 /**
- * @name JiraApi
- * @class
- * Wrapper for the JIRA Rest Api
+ * Minimal wrapper for the JIRA REST API.
  * https://docs.atlassian.com/jira/REST/6.4.8/
- * https://github.com/jira-node/node-jira-client/blob/f9102bbe3969185a92834f48076c65aa9c5d0be4/src/jira.js
+ *
+ * Uses the runtime's built-in fetch, which removes the dependency on the
+ * deprecated `request` family of packages.
  */
 export default class JiraApi {
-    /**
-     * @constructor
-     * @function
-     * @param options
-     */
     constructor(options) {
-        this.protocol = options.protocol || 'http';
+        this.protocol = options.protocol || 'https';
         this.host = options.host;
         this.email = options.email;
         this.token = options.token;
         this.apiVersion = options.apiVersion || '3';
         this.base = options.base || '';
         this.intermediatePath = options.intermediatePath;
-        this.strictSSL = options.hasOwnProperty('strictSSL') ? options.strictSSL : true;
+        this.timeout = options.timeout ?? 30000;
 
-        // This is so we can fake during unit tests
-        this.request = options.request || request;
-        this.baseOptions = {};
-
-        this.baseOptions.headers = {
-            sendImmediately: true,
-            Authorization: 'Basic '+Buffer.from(this.email+':'+this.token).toString('base64')
-        };
-
-        if (options.timeout) {
-            this.baseOptions.timeout = options.timeout;
-        }
+        // Injectable so unit tests can fake the transport.
+        this.request = options.request || defaultRequest;
     }
 
-    makeRequestHeader(uri, options = {}) {
+    /** Authentication and content headers sent with every request. */
+    headers() {
+        const credentials = Buffer.from(`${this.email}:${this.token}`).toString('base64');
         return {
-            rejectUnauthorized: this.strictSSL,
-            method: options.method || 'GET',
-            uri,
-            json: true,
-            ...options,
+            Authorization: `Basic ${credentials}`,
+            Accept: 'application/json',
+            'Content-Type': 'application/json',
         };
     }
 
     /**
-     * @name makeUri
-     * @function
-     * Creates a URI object for a given pathname
-     * @param {object} [options] - an object containing path information
+     * Builds the absolute URL for a given API path.
+     * @param {object} options - path, query and optional intermediate path
      */
-    makeUri({
-                pathname, query, intermediatePath, encode = false,
-            }) {
-        const intermediateToUse = this.intermediatePath || intermediatePath;
-        const tempPath = intermediateToUse || `/rest/api/${this.apiVersion}`;
-        const uri = url.format({
-            protocol: this.protocol,
-            hostname: this.host,
-            pathname: `${this.base}${tempPath}${pathname}`,
-            query,
+    makeUri({pathname, query = {}}) {
+        const intermediate = this.intermediatePath || `/rest/api/${this.apiVersion}`;
+        const uri = new URL(`${this.base}${intermediate}${pathname}`, `${this.protocol}://${this.host}`);
+
+        Object.entries(query)
+            .filter(([, value]) => value !== undefined && value !== null && value !== '')
+            .forEach(([key, value]) => uri.searchParams.set(key, String(value)));
+
+        return uri.toString();
+    }
+
+    /**
+     * Performs the request and normalises JIRA's error shape.
+     * Errors are rejected with the parsed body so callers can read
+     * `err.errorMessages`.
+     */
+    async doRequest(url, {method = 'GET', body} = {}) {
+        const response = await this.request(url, {
+            method,
+            headers: this.headers(),
+            body: body === undefined ? undefined : JSON.stringify(body),
+            timeout: this.timeout,
         });
-        return encode ? encodeURI(uri) : decodeURIComponent(uri);
-    }
 
-    /**
-     * @name doRequest
-     * @function
-     * Does a request based on the requestOptions object
-     * @param {object} requestOptions - fields on this object get posted as a request header for
-     * requests to jira
-     */
-    async doRequest(requestOptions) {
-        const options = {
-            ...this.baseOptions,
-            ...requestOptions,
-        };
-
-            const response = await this.request(options);
-
-            if (response) {
-                if (Array.isArray(response.errorMessages) && response.errorMessages.length > 0) {
-                    throw new Error(response.errorMessages.join(', '));
-                }
-            }
-
-            return response;
-        try {
-        } catch (e) {
-            throw new Error(JSON.stringify(e));
+        if (Array.isArray(response?.errorMessages) && response.errorMessages.length) {
+            const error = new Error(response.errorMessages.join(', '));
+            error.errorMessages = response.errorMessages;
+            throw error;
         }
+
+        return response;
     }
 
     /**
-     * @name findIssue
-     * @function
-     * Find an issue in jira
-     * [Jira Doc](http://docs.atlassian.com/jira/REST/latest/#id290709)
-     * @param {string} issueNumber - The issue number to search for including the project key
-     * @param {string} expand - The resource expansion to return additional fields in the response
-     * @param {string} fields - Comma separated list of field ids or keys to retrieve
-     * @param {string} properties - Comma separated list of properties to retrieve
-     * @param {boolean} fieldsByKeys - False by default, used to retrieve fields by key instead of id
+     * Find an issue in jira.
+     * @param {string} issueNumber - issue key including the project key
+     * @param {string} fields - comma separated list of field ids or keys
      */
     findIssue({issueNumber, expand = '', fields = '', properties = '', fieldsByKeys = false}) {
-        return this.doRequest(this.makeRequestHeader(this.makeUri({
-            pathname: `/issue/${issueNumber}`,
-            query: {
-                expand: expand || '',
-                fields: fields || '*all',
-                properties: properties || '*all',
-                fieldsByKeys: fieldsByKeys || false,
-            },
-        })));
+        return this.doRequest(this.makeUri({
+            pathname: `/issue/${encodeURIComponent(issueNumber)}`,
+            query: {expand, fields, properties, fieldsByKeys},
+        }));
     }
 
-    /** Add issue to Jira
-     * [Jira Doc](http://docs.atlassian.com/jira/REST/latest/#id290028)
-     * @name addNewIssue
-     * @function
-     * @param {object} issue - Properly Formatted Issue object
-     */
+    /** Create a new issue. */
     addNewIssue(issue) {
-        return this.doRequest(this.makeRequestHeader(this.makeUri({
-            pathname: '/issue',
-        }), {
-            method: 'POST',
-            followAllRedirects: true,
-            body: issue,
-        }));
+        return this.doRequest(this.makeUri({pathname: '/issue'}), {method: 'POST', body: issue});
     }
 
-    /** Update issue in Jira
-     * [Jira Doc](http://docs.atlassian.com/jira/REST/latest/#id290878)
-     * @name updateIssue
-     * @function
-     * @param {string} issueId - the Id of the issue to update
-     * @param {object} issueUpdate - update Object as specified by the rest api
-     * @param {object} query - adds parameters to the query string
-     */
+    /** Update an existing issue. */
     updateIssue({issueId, issueUpdate, query = {}}) {
-        return this.doRequest(this.makeRequestHeader(this.makeUri({
-            pathname: `/issue/${issueId}`,
+        return this.doRequest(this.makeUri({
+            pathname: `/issue/${encodeURIComponent(issueId)}`,
             query,
-        }), {
-            body: issueUpdate,
-            method: 'PUT',
-            followAllRedirects: true,
-        }));
+        }), {method: 'PUT', body: issueUpdate});
     }
 
-    /** Add a comment to an issue
-     * [Jira Doc](https://docs.atlassian.com/jira/REST/latest/#id108798)
-     * @name addComment
-     * @function
-     * @param {string} issueId - Issue to add a comment to
-     * @param {string} comment - string containing comment
-     */
+    /** Add a comment to an issue. */
     addComment(issueId, comment) {
-        return this.doRequest(this.makeRequestHeader(this.makeUri({
-            pathname: `/issue/${issueId}/comment`,
-        }), {
-            body: {
-                body: comment,
-            },
-            method: 'POST',
-            followAllRedirects: true,
-        }));
+        return this.doRequest(this.makeUri({
+            pathname: `/issue/${encodeURIComponent(issueId)}/comment`,
+        }), {method: 'POST', body: {body: comment}});
     }
 
-    /** Describe the currently authenticated user
-     * [Jira Doc](http://docs.atlassian.com/jira/REST/latest/#id2e865)
-     * @name getCurrentUser
-     * @function
-     */
+    /** Describe the currently authenticated user. */
     getCurrentUser() {
-        return this.doRequest(this.makeRequestHeader(this.makeUri({
-            pathname: '/myself',
-        })));
+        return this.doRequest(this.makeUri({pathname: '/myself'}));
     }
 }
+
+/**
+ * Default transport: fetch with a timeout, returning the parsed JSON body.
+ * Responses with a 4xx/5xx status reject with the parsed body attached.
+ */
+const defaultRequest = async (url, {method, headers, body, timeout}) => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeout);
+
+    let response;
+    try {
+        response = await fetch(url, {method, headers, body, signal: controller.signal});
+    } catch (err) {
+        if (err.name === 'AbortError') throw new Error(`Jira request timed out after ${timeout}ms`);
+        throw err;
+    } finally {
+        clearTimeout(timer);
+    }
+
+    const text = await response.text();
+    let payload = null;
+    if (text) {
+        try {
+            payload = JSON.parse(text);
+        } catch {
+            payload = text;
+        }
+    }
+
+    if (!response.ok) {
+        const messages = payload?.errorMessages?.length
+            ? payload.errorMessages
+            : [payload?.message || `Jira responded with ${response.status} ${response.statusText}`];
+
+        const error = new Error(messages.join(', '));
+        error.status = response.status;
+        error.errorMessages = messages;
+        throw error;
+    }
+
+    return payload;
+};
