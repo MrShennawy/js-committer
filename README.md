@@ -194,8 +194,17 @@ pinned by the project in `.committerrc`:
 | `ollama` | **no** | **nowhere, it runs on your machine** |
 
 Use `ollama` when the code is not allowed to leave your network: there is no
-key to set up and nothing is sent anywhere. `model` and `baseUrl` let you point
-at a specific model or a self-hosted endpoint.
+key to set up and nothing is sent anywhere. It needs a model pulled first:
+
+```bash
+ollama pull qwen2.5-coder:7b   # or any model you prefer
+```
+
+`cmt --setup` asks the provider which models it actually has and lets you pick
+from that list, so you never end up pointing at a model that is not there.
+Re-run it any time to change the model. `baseUrl` in `.committerrc` points at a
+remote Ollama or a self-hosted OpenAI-compatible endpoint, and `OLLAMA_HOST` is
+honoured with or without a scheme.
 
 Whatever the provider, the diff is redacted before the prompt is built. Private
 key blocks, AWS, Google, Atlassian, GitHub, Slack and OpenAI style tokens, JWTs,

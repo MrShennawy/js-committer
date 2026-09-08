@@ -1,4 +1,7 @@
-import postJson from './http.js';
+import {postJson, getJson, modelNotAvailable} from './http.js';
+
+const VERSION = '2023-06-01';
+const root = (baseUrl) => (baseUrl || 'https://api.anthropic.com').replace(/\/+$/, '');
 
 export default {
     id: 'anthropic',
@@ -12,21 +15,34 @@ export default {
     loosePattern: /^sk-ant-[A-Za-z0-9_-]{16,}$/,
     keyHint: "they start with 'sk-ant-'",
 
-    async generate({prompt, apiKey, model, baseUrl}) {
-        const root = (baseUrl || 'https://api.anthropic.com').replace(/\/+$/, '');
-
-        const payload = await postJson(`${root}/v1/messages`, {
-            headers: {
-                'x-api-key': apiKey,
-                'anthropic-version': '2023-06-01',
-            },
-            body: {
-                model: model || this.defaultModel,
-                max_tokens: 1024,
-                messages: [{role: 'user', content: prompt}],
-            },
+    async listModels({apiKey, baseUrl} = {}) {
+        const payload = await getJson(`${root(baseUrl)}/v1/models?limit=100`, {
+            headers: {'x-api-key': apiKey, 'anthropic-version': VERSION},
+            timeout: 15000,
         });
 
-        return payload?.content?.map(part => part.text ?? '').join('') ?? '';
+        return (payload?.data ?? []).map(model => model.id).filter(Boolean).sort();
+    },
+
+    async generate({prompt, apiKey, model, baseUrl}) {
+        const name = model || this.defaultModel;
+
+        try {
+            const payload = await postJson(`${root(baseUrl)}/v1/messages`, {
+                headers: {
+                    'x-api-key': apiKey,
+                    'anthropic-version': VERSION,
+                },
+                body: {
+                    model: name,
+                    max_tokens: 1024,
+                    messages: [{role: 'user', content: prompt}],
+                },
+            });
+
+            return payload?.content?.map(part => part.text ?? '').join('') ?? '';
+        } catch (err) {
+            throw modelNotAvailable(err, name);
+        }
     },
 };

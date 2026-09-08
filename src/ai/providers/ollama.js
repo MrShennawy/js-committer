@@ -1,4 +1,23 @@
-import postJson from './http.js';
+import {postJson, getJson, normaliseBaseUrl} from './http.js';
+
+const DEFAULT_HOST = 'http://127.0.0.1:11434';
+
+const hostFor = (baseUrl) => normaliseBaseUrl(baseUrl || process.env.OLLAMA_HOST, DEFAULT_HOST);
+
+/** Turns a connection failure into something the user can act on. */
+const describeFailure = (err, root, model) => {
+    if (err.cause?.code === 'ECONNREFUSED' || /fetch failed|ENOTFOUND/i.test(err.message)) {
+        return new Error(`no Ollama server at ${root}. Start it with 'ollama serve'`);
+    }
+
+    // Ollama answers 404 when the server is up but the model is not pulled,
+    // which is easy to mistake for a bad URL.
+    if (err.status === 404 && model) {
+        return new Error(`Ollama has no model called '${model}'. Install it with 'ollama pull ${model}'`);
+    }
+
+    return err;
+}
 
 /**
  * A model running on the machine itself.
@@ -18,13 +37,29 @@ export default {
     loosePattern: null,
     keyHint: null,
 
+    /** The models actually installed on this machine. */
+    async listModels({baseUrl} = {}) {
+        const root = hostFor(baseUrl);
+
+        try {
+            const payload = await getJson(`${root}/api/tags`, {timeout: 10000});
+            return (payload?.models ?? [])
+                .map(entry => entry.name ?? entry.model)
+                .filter(Boolean)
+                .sort();
+        } catch (err) {
+            throw describeFailure(err, root, null);
+        }
+    },
+
     async generate({prompt, model, baseUrl}) {
-        const root = (baseUrl || process.env.OLLAMA_HOST || 'http://127.0.0.1:11434').replace(/\/+$/, '');
+        const root = hostFor(baseUrl);
+        const name = model || this.defaultModel;
 
         try {
             const payload = await postJson(`${root}/api/generate`, {
                 body: {
-                    model: model || this.defaultModel,
+                    model: name,
                     prompt,
                     stream: false,
                     options: {temperature: 0.2},
@@ -35,10 +70,7 @@ export default {
 
             return payload?.response ?? '';
         } catch (err) {
-            if (err.cause?.code === 'ECONNREFUSED' || /fetch failed/i.test(err.message)) {
-                throw new Error(`no Ollama server at ${root}. Start it with 'ollama serve'`);
-            }
-            throw err;
+            throw describeFailure(err, root, name);
         }
     },
 };

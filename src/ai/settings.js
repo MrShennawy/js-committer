@@ -97,6 +97,66 @@ const acceptKey = async (provider, key, extras = {}) => {
     return null;
 }
 
+/**
+ * Asks which model to use, from the list the provider really offers.
+ *
+ * Model availability differs by key, by account and, for a local server, by
+ * what has been pulled, so guessing a default is how you end up with a 404
+ * that reads like a broken URL.
+ *
+ * @returns {Promise<string|null>} the chosen model, or null to keep the default
+ */
+export const chooseModel = async (provider, {apiKey, baseUrl} = {}) => {
+    if (typeof provider.listModels !== 'function') return null;
+
+    const spinner = ora('Looking up the available models ... \n').start();
+
+    let models = [];
+    try {
+        models = await provider.listModels({apiKey, baseUrl});
+    } catch (err) {
+        spinner.text = chalk.yellow(`Could not list the models: ${err.message}`);
+        spinner.warn();
+
+        if (provider.local) {
+            console.log(chalk.dim(` Pull one with ${chalk.cyan('ollama pull llama3.2')} and run ${chalk.cyan('cmt --setup')} again.\n`));
+        }
+        return null;
+    }
+
+    if (!models.length) {
+        spinner.text = chalk.yellow('That provider reported no usable models.');
+        spinner.warn();
+
+        if (provider.local) {
+            console.log(chalk.dim(` Install one with ${chalk.cyan('ollama pull llama3.2')}, then run ${chalk.cyan('cmt --setup')} again.\n`));
+        }
+        return null;
+    }
+
+    spinner.stop();
+
+    // Offer the provider's own default first when it is genuinely available.
+    const ordered = models.includes(provider.defaultModel)
+        ? [provider.defaultModel, ...models.filter(name => name !== provider.defaultModel)]
+        : models;
+
+    const {model} = await inquirer.prompt([{
+        type: 'list',
+        name: 'model',
+        pageSize: 12,
+        prefix: `\n ${chalk.bold.red('❯')}`,
+        message: `Which model? ${chalk.dim(`(${models.length} available)`)}`,
+        choices: ordered.map(name => ({
+            value: name,
+            name: name === provider.defaultModel ? `${name} ${chalk.dim('(suggested)')}` : name,
+            short: name,
+        })),
+    }]);
+
+    return model;
+}
+
 const disableAi = () => {
     write({aiDisabled: true});
     console.log(chalk.dim(`\n Continuing without AI. Run ${chalk.cyan('cmt --setup')} whenever you want to enable it.\n`));
@@ -159,24 +219,30 @@ const collectKey = async (provider) => {
     return typed;
 }
 
-/** Confirms a local provider is reachable; there is no key to collect. */
+/** Confirms a local provider is reachable and picks one of its models. */
 const setupLocalProvider = async (provider) => {
     console.log(chalk.dim(`\n ${provider.label}`));
-    console.log(chalk.dim(` Using model ${chalk.cyan(provider.defaultModel)}. Change it with "ai": {"model": "..."} in .committerrc.\n`));
 
-    const spinner = ora('Looking for the local model ... \n').start();
-    const {valid, reason} = await validateKey(provider, null, {});
+    const model = await chooseModel(provider);
 
-    if (valid) {
-        spinner.text = chalk.green('The local model answered.');
-        spinner.succeed();
-    } else {
-        spinner.text = chalk.yellow(`Could not reach it: ${reason}`);
-        spinner.warn();
-        console.log(chalk.dim(' Saved anyway; it will be used once the server is running.\n'));
+    if (!model) {
+        // Saved regardless: the server may simply not be running yet.
+        write({provider: provider.id, aiDisabled: false});
+        return true;
     }
 
-    write({provider: provider.id, aiDisabled: false});
+    const spinner = ora(`Checking ${model} ... \n`).start();
+    const {valid, reason} = await validateKey(provider, null, {model});
+
+    if (valid) {
+        spinner.text = chalk.green(`${model} answered.`);
+        spinner.succeed();
+    } else {
+        spinner.text = chalk.yellow(`Could not use it: ${reason}`);
+        spinner.warn();
+    }
+
+    write({provider: provider.id, model, aiDisabled: false});
     return true;
 }
 
@@ -207,7 +273,12 @@ export const setupAi = async () => {
     }
 
     const accepted = await acceptKey(provider, key);
-    return accepted ? {provider, apiKey: accepted} : null;
+    if (!accepted) return null;
+
+    const model = await chooseModel(provider, {apiKey: accepted});
+    if (model) write({model});
+
+    return {provider, apiKey: accepted, model};
 }
 
 /**
@@ -240,7 +311,12 @@ export const resolveAi = async ({interactive = true} = {}) => {
     const result = await setupAi();
     if (!result) return null;
 
-    return {...settings, provider: result.provider, apiKey: result.apiKey};
+    return {
+        ...settings,
+        provider: result.provider,
+        apiKey: result.apiKey,
+        model: result.model ?? settings.model,
+    };
 }
 
 /** Clears the stored key for the active provider. */
