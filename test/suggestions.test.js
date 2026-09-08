@@ -43,6 +43,13 @@ test('a scope is used only when the whole change sits in one area', () => {
     assert.equal(detectScope(files('index.js')), null, 'a root file has no area');
 });
 
+test('a container directory is not a scope', () => {
+    // "feat(src)" and "test(test)" say nothing that the paths do not.
+    assert.equal(detectScope(files('src/reset.js', 'src/mailer.js')), null);
+    assert.equal(detectScope(files('test/a.test.js')), null);
+    assert.equal(detectScope(files('lib/x.js')), null);
+});
+
 test('repository level files do not prevent a scope', () => {
     assert.equal(detectScope(files('src/auth/a.js', 'README.md', 'package.json')), 'auth');
 });

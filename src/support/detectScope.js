@@ -6,7 +6,12 @@
  */
 
 // Directories that group a project rather than name an area of it.
-const CONTAINER_DIRS = new Set(['src', 'lib', 'app', 'packages', 'apps', 'modules', 'services', 'libs', 'components']);
+const CONTAINER_DIRS = new Set([
+    'src', 'lib', 'libs', 'app', 'apps', 'packages', 'modules', 'services', 'components', 'source',
+    // A test-only change is already typed "test", so "test(test)" says nothing.
+    'test', 'tests', '__tests__', 'spec', 'specs',
+    'dist', 'build', 'out',
+]);
 
 // Files that belong to the repository as a whole, not to any one area.
 const ROOT_FILES = /^(package(-lock)?\.json|readme|license|changelog|\.[^/]+|[^/]*\.(md|ya?ml|toml|lock))$/i;
@@ -27,8 +32,9 @@ const areaOf = (path) => {
         return segment;
     }
 
-    // Everything before the file name was a container, so use the last of them.
-    return segments[segments.length - 2] ?? null;
+    // Everything before the file name was a container, e.g. "src/app.js".
+    // "src" names no area of the project, so there is no scope to report.
+    return null;
 };
 
 /**

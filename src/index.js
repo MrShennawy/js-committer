@@ -20,6 +20,7 @@ import {canAmend, amendCommit, isLastCommitPushed, pushHint} from "./git/amend.j
 import {undoLastCommit} from "./git/undo.js";
 import {version} from "./support/pkg.js";
 import {runGuards} from "./questions/guards.js";
+import splitCommits from "./questions/split.js";
 
 /** Atlassian document format body for the "commit link" comment. */
 const commitComment = (link, description) => ({
@@ -53,6 +54,7 @@ const HELP = `
    cmt -b              run a build command first
    cmt -jr             link the commit to a Jira issue
    cmt --no-ai         write the message yourself this once
+   cmt --split         divide the change into several commits
 
  ${chalk.yellow('Redoing things')}
    cmt --amend         rewrite the previous commit
@@ -161,6 +163,17 @@ async function main() {
     if (!await runGuards(paths)) {
         console.log(chalk.dim(' Stopped, nothing was committed.\n'));
         process.exit(0);
+    }
+
+    // --split makes its own commits, then rejoins the flow at the pull.
+    if (flags.split && !flags.amend && !flags.dryRun) {
+        if (await splitCommits(paths)) {
+            await pull.command();
+            const pushed = await push.command();
+            const url = commitLink();
+            if (pushed && url) console.log(`\n[ Commit link => ${chalk.cyan(url)} ] \n`);
+            return;
+        }
     }
 
     // -b runs the build first and aborts the commit when it fails.
