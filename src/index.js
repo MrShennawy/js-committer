@@ -19,6 +19,7 @@ import fetch from "./git/fetch.js";
 import {canAmend, amendCommit, isLastCommitPushed, pushHint} from "./git/amend.js";
 import {undoLastCommit} from "./git/undo.js";
 import {version} from "./support/pkg.js";
+import {runGuards} from "./questions/guards.js";
 
 /** Atlassian document format body for the "commit link" comment. */
 const commitComment = (link, description) => ({
@@ -155,6 +156,12 @@ async function main() {
     if (!flags.dryRun) fetch.prefetch();
 
     const paths = await files();
+
+    // Protected branch and secret checks, before anything is written.
+    if (!await runGuards(paths)) {
+        console.log(chalk.dim(' Stopped, nothing was committed.\n'));
+        process.exit(0);
+    }
 
     // -b runs the build first and aborts the commit when it fails.
     if (flags.build) await build();
