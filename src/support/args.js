@@ -39,8 +39,19 @@ export const flags = {
     noAi: has('--no-ai'),
     // --set-key <key> : store a key without the walkthrough
     setKey: valueOf('--set-key'),
-    // -h / --help
+    // -y : accept every confirmation, for unattended runs
+    yes: has('-y', '--yes'),
+    // --amend : rewrite the previous commit instead of creating one
+    amend: has('--amend'),
+    // --dry-run : show what would happen and stop
+    dryRun: has('--dry-run', '-n'),
+    // --undo : soft reset the previous commit
+    undo: has('--undo'),
+    // --split : group the changes into several commits
+    split: has('--split'),
+    // -h / --help, -v / --version
     help: has('-h', '--help'),
+    version: has('-v', '--version'),
 };
 
 export default flags;

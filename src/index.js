@@ -15,6 +15,10 @@ import {updateIssueCommitLink} from "./questions/jira.js";
 import {setupApiKey, setApiKeyDirectly, ENV_VARIABLE_NAMES} from "./ai/apiKey.js";
 import {withIssue} from "./support/issueKey.js";
 import {setupJira, JIRA_ENV_NAMES} from "./jira/credentials.js";
+import fetch from "./git/fetch.js";
+import {canAmend, amendCommit, isLastCommitPushed, pushHint} from "./git/amend.js";
+import {undoLastCommit} from "./git/undo.js";
+import {version} from "./support/pkg.js";
 
 /** Atlassian document format body for the "commit link" comment. */
 const commitComment = (link, description) => ({
@@ -49,6 +53,12 @@ const HELP = `
    cmt -jr             link the commit to a Jira issue
    cmt --no-ai         write the message yourself this once
 
+ ${chalk.yellow('Redoing things')}
+   cmt --amend         rewrite the previous commit
+   cmt --undo          undo the previous commit, keeping the changes
+   cmt --dry-run       show what would happen and stop
+   cmt -y              accept every confirmation, for scripts
+
  ${chalk.yellow('Setup')}
    cmt --setup         connect the AI and Jira
    cmt --set-key KEY   store a Google API key directly
@@ -61,6 +71,11 @@ const HELP = `
 
 /** Commands that configure the tool and exit, usable outside a repository. */
 async function runStandaloneCommand() {
+    if (flags.version) {
+        console.log(version);
+        return true;
+    }
+
     if (flags.help) {
         console.log(HELP);
         return true;
@@ -105,6 +120,14 @@ async function runStandaloneCommand() {
     return false;
 }
 
+/** Prints the plan for --dry-run without touching the repository. */
+function reportDryRun(paths, commitSentence) {
+    console.log(chalk.yellow('\n Dry run, nothing was changed.\n'));
+    console.log(` ${chalk.yellow('Would stage:')}  ${paths.join(', ')}`);
+    console.log(` ${chalk.yellow('Would commit:')} ${chalk.green(commitSentence)}`);
+    console.log(chalk.dim(`\n Run the same command without --dry-run to apply it.\n`));
+}
+
 async function main() {
     if (await runStandaloneCommand()) return;
 
@@ -113,7 +136,23 @@ async function main() {
         process.exit(1);
     }
 
+    if (flags.undo) {
+        await undoLastCommit();
+        return;
+    }
+
+    if (flags.amend) {
+        const {ok, reason} = canAmend();
+        if (!ok) {
+            console.error(chalk.red(`\n Cannot amend: ${reason}.\n`));
+            process.exit(1);
+        }
+    }
+
     greetings();
+
+    // The network round trip overlaps with the questions that follow.
+    if (!flags.dryRun) fetch.prefetch();
 
     const paths = await files();
 
@@ -125,7 +164,21 @@ async function main() {
 
     console.log(`\n [ Your commit => ${chalk.green(commitSentence)} ] \n`);
 
+    if (flags.dryRun) {
+        reportDryRun(paths, commitSentence);
+        return;
+    }
+
     await add.command(paths);
+
+    if (flags.amend) {
+        const wasPushed = isLastCommitPushed();
+        amendCommit(commitSentence);
+        console.log(chalk.green('\n The previous commit has been rewritten.\n'));
+        if (wasPushed) console.log(pushHint());
+        return;
+    }
+
     commit.command(commitSentence);
     await pull.command();
 

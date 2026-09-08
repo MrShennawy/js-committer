@@ -1,22 +1,15 @@
 import {execFile} from "child_process";
 import ora from "ora";
 import chalk from "chalk";
-import inquirer from "../prompts/register.js";
+import {confirm} from "../prompts/ask.js";
 import fetch from "./fetch.js";
 import config from "./config.js";
 import {isBehindRemote} from "../support/git.js";
 
-const askForPull = () => {
-    return inquirer.prompt([
-        {
-            type: 'enhanced-confirm',
-            name: 'runPull',
-            prefix: `\n ${chalk.bold.red('❯')}`,
-            message: `You have new changes in your remote repository. Should you run ${chalk.bold.cyan('git pull')} ?`,
-            default: true
-        }
-    ]);
-}
+const askForPull = () => confirm({
+    name: 'runPull',
+    message: `You have new changes in your remote repository. Should you run ${chalk.bold.cyan('git pull')} ?`,
+});
 
 const command = async () => {
     await fetch.command();
@@ -25,8 +18,7 @@ const command = async () => {
     // changes with the user's locale.
     if (!isBehindRemote()) return false;
 
-    const pullAnswer = await askForPull();
-    if (!pullAnswer.runPull) return false;
+    if (!await askForPull()) return false;
 
     if (!config.get('pull.rebase')) config.set('pull.rebase', 'false');
 

@@ -19,7 +19,7 @@ const greetingsBox = ({body, info, hint, color = 'gray'}) => {
 export const greetings = () => {
     // Uses the porcelain output rather than git's English status text, so the
     // check keeps working under any locale.
-    if (status.isClean() && !flags.build) {
+    if (status.isClean() && !flags.build && !flags.amend) {
         greetingsBox({
             body: chalk.yellow('Nothing to commit, working tree clean '),
             color: 'yellow',

@@ -10,7 +10,8 @@ import flags from "../support/args.js";
  * @returns {Promise<string[]>}
  */
 export default async () => {
-    if (!flags.selectFiles) return ['.'];
+    // Picking files needs someone at the keyboard, so --yes stages everything.
+    if (!flags.selectFiles || flags.yes) return ['.'];
 
     const answers = await inquirer.prompt([await add.files()]);
     return answers.files;

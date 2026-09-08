@@ -2,6 +2,8 @@ import inquirer from "../prompts/register.js";
 import commit, {parseSubject} from "../git/commit.js";
 import jiraQuestions from './jira.js';
 import {generateCommitMessage} from "../ai/GoogleGenerativeAI.js";
+import branch from "../git/branch.js";
+import {issueKeyFromBranch} from "../support/issueKey.js";
 import flags from "../support/args.js";
 
 /**
@@ -17,13 +19,24 @@ export default async (paths = ['.']) => {
 
     // -lc reuses the previous message; anything else asks the model, which
     // also decides the commit type.
-    let suggestion = flags.lastCommit ? commit.lastCommit() : null;
+    let suggestion = (flags.lastCommit || flags.amend) ? commit.lastCommit({avoidArg: flags.amend}) : null;
 
     if (!suggestion) {
         suggestion = await generateCommitMessage(paths, {
             summary: issueData?.summary,
             jiraIssueType: issueData?.issuetype?.name,
         });
+    }
+
+    // Under --yes nothing is asked: the suggestion is taken as written and the
+    // issue reference comes from Jira or the branch name.
+    if (flags.yes) {
+        const issueId = issueData?.issueId ?? issueKeyFromBranch(branch.current());
+        return {
+            type: parseSubject(suggestion).type,
+            sentence: suggestion.trim(),
+            issueId: issueId || null,
+        };
     }
 
     const {commit: message} = await inquirer.prompt([commit.sentence(suggestion)]);

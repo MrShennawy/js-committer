@@ -1,20 +1,15 @@
 import chalk from "chalk";
 import inquirer from "../prompts/register.js";
+import {confirm} from "../prompts/ask.js";
 import status from "./status.js";
 import RequiredError from "../exceptions/RequiredError.js";
 import git from "../support/git.js";
 
-const askForCommit = () => {
-    return inquirer.prompt([
-        {
-            type: 'enhanced-confirm',
-            name: 'runAddCommit',
-            prefix: `${chalk.bold.red('❯')}`,
-            message: `Do you want to use this commit message?`,
-            default: true
-        }
-    ]);
-}
+const askForCommit = () => confirm({
+    name: 'runAddCommit',
+    prefix: `${chalk.bold.red('❯')}`,
+    message: 'Do you want to use this commit message?',
+});
 
 /**
  * Confirms the message with the user and stages the selected paths.
@@ -24,10 +19,8 @@ const askForCommit = () => {
  * @param {string[]} paths
  */
 const command = async (paths = ['.']) => {
-    const commitAnswer = await askForCommit();
-
     // Declining is a normal cancellation, not a failure.
-    if (!commitAnswer.runAddCommit) {
+    if (!await askForCommit()) {
         console.log(chalk.dim('\nAborted, nothing was committed.\n'));
         process.exit(0);
     }

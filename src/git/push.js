@@ -1,21 +1,14 @@
 import {execFile} from "child_process";
 import ora from "ora";
 import chalk from "chalk";
-import inquirer from "../prompts/register.js";
+import {confirm} from "../prompts/ask.js";
 import branch from "./branch.js";
 import git from "../support/git.js";
 
-const askForPush = () => {
-    return inquirer.prompt([
-        {
-            type: 'enhanced-confirm',
-            name: 'runPush',
-            prefix: `\n ${chalk.bold.red('❯')}`,
-            message: `Run ${chalk.bold.cyan('git push')} ?`,
-            default: true
-        }
-    ]);
-}
+const askForPush = () => confirm({
+    name: 'runPush',
+    message: `Run ${chalk.bold.cyan('git push')} ?`,
+});
 
 /** Sets the upstream on the first push of a branch, pushes normally after that. */
 const pushArgs = () => {
@@ -27,8 +20,7 @@ const pushArgs = () => {
 }
 
 const command = async () => {
-    const pushAnswer = await askForPush();
-    if (!pushAnswer.runPush) return false;
+    if (!await askForPush()) return false;
 
     console.log();
 
