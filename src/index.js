@@ -77,21 +77,27 @@ async function runStandaloneCommand() {
     }
 
     if (flags.setup) {
-        const {parts} = await inquirer.prompt([{
-            type: 'checkbox',
-            name: 'parts',
+        // A single choice list: the arrow keys move and Enter picks. A checkbox
+        // needs space to toggle, so moving to an entry and pressing Enter ran
+        // the one that happened to be ticked instead.
+        const {part} = await inquirer.prompt([{
+            type: 'list',
+            name: 'part',
             prefix: `\n ${chalk.bold.red('❯')}`,
             suffix: '\n',
             message: 'What would you like to set up?',
             choices: [
-                {value: 'ai', name: 'AI commit messages (Google Gemini)', checked: true},
-                {value: 'jira', name: 'Jira issue linking', checked: false},
+                {value: 'ai', name: 'AI commit messages (Google Gemini)'},
+                {value: 'jira', name: 'Jira issue linking'},
+                {value: 'both', name: 'Both'},
+                new inquirer.Separator(),
+                {value: null, name: 'Cancel'},
             ],
         }]);
 
-        if (parts.includes('ai')) await setupApiKey();
-        if (parts.includes('jira')) await setupJira();
-        if (!parts.length) console.log(chalk.dim('\n Nothing selected.\n'));
+        if (part === 'ai' || part === 'both') await setupApiKey();
+        if (part === 'jira' || part === 'both') await setupJira();
+        if (!part) console.log(chalk.dim('\n Nothing to do.\n'));
 
         return true;
     }
