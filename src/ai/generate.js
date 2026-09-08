@@ -1,14 +1,12 @@
-import {GoogleGenerativeAI as GeminiClient} from "@google/generative-ai";
 import chalk from "chalk";
 import ora from "ora";
 import gitDiff from "../git/diff.js";
 import {parseSubject, formatSubject, isKnownType, typeNames, typeGuide} from "../git/commit.js";
 import detectType from "../support/detectType.js";
 import loadConfig from "../support/config.js";
-import {resolveApiKey, clearApiKey} from "./apiKey.js";
+import {resolveAi, clearApiKey} from "./settings.js";
+import {redact} from "../support/redact.js";
 import flags from "../support/args.js";
-
-const MODEL = "gemini-2.5-flash-lite";
 
 /**
  * A repository may narrow the list of types, so a type detected from the file
@@ -137,22 +135,35 @@ export const resolveMessage = (text, guessedType, summary = null) => {
  * @returns {Promise<string>} a message shaped as "type: description"
  */
 export const generateCommitMessage = async (paths = ['.'], {summary = null, jiraIssueType = null} = {}) => {
-    const changes = gitDiff.collect(paths);
+    const collected = gitDiff.collect(paths);
 
     // Worked out up front so it is available whether or not the model answers.
-    const guessedType = configuredType(detectType(changes.files, jiraIssueType));
+    const guessedType = configuredType(detectType(collected.files, jiraIssueType));
+
+    // Nothing that looks like a credential is allowed into the prompt, whoever
+    // the provider turns out to be.
+    const cleaned = redact(collected.diff);
+    const changes = {...collected, diff: cleaned.text};
+    if (cleaned.removed) {
+        console.log(chalk.dim(` ${cleaned.removed} value(s) that looked like credentials were removed from the diff.`));
+    }
     const fallback = `${guessedType}: ${fallbackDescription(guessedType, summary)}`;
 
-    // No key, or the user opted out: fall back quietly rather than nagging.
-    const apiKey = flags.noAi ? null : await resolveApiKey();
-    if (!apiKey) return fallback;
+    // No model configured, or the user opted out: fall back quietly.
+    const ai = flags.noAi ? null : await resolveAi();
+    if (!ai) return fallback;
 
     const spinner = ora('Content generation ... \n').start();
 
     try {
-        const model = new GeminiClient(apiKey).getGenerativeModel({model: MODEL});
-        const result = await model.generateContent(buildPrompt(summary, changes));
-        const resolved = resolveMessage(result?.response?.text(), guessedType, summary);
+        const reply = await ai.provider.generate({
+            prompt: buildPrompt(summary, changes),
+            apiKey: ai.apiKey,
+            model: ai.model,
+            baseUrl: ai.baseUrl,
+        });
+
+        const resolved = resolveMessage(reply, guessedType, summary);
 
         if (!resolved) {
             spinner.text = chalk.yellow('The model returned no message, using a fallback.');

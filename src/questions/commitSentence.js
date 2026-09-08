@@ -1,7 +1,7 @@
 import inquirer from "../prompts/register.js";
 import commit, {parseSubject} from "../git/commit.js";
 import jiraQuestions from './jira.js';
-import {generateCommitMessage} from "../ai/GoogleGenerativeAI.js";
+import {generateCommitMessage} from "../ai/generate.js";
 import branch from "../git/branch.js";
 import {issueKeyFromBranch} from "../support/issueKey.js";
 import flags from "../support/args.js";

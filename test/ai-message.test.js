@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {resolveMessage} from '../src/ai/GoogleGenerativeAI.js';
+import {resolveMessage} from '../src/ai/generate.js';
 
 test('a well formed reply is kept as is', () => {
     assert.deepEqual(resolveMessage('feat: add user authentication', 'fix'), {

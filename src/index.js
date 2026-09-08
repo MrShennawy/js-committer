@@ -12,7 +12,7 @@ import files from "./questions/files.js";
 import build from "./questions/build.js";
 import sentence from "./questions/commitSentence.js";
 import {updateIssueCommitLink} from "./questions/jira.js";
-import {setupApiKey, setApiKeyDirectly, ENV_VARIABLE_NAMES} from "./ai/apiKey.js";
+import {setupAi, setApiKeyDirectly, ENV_VARIABLE_NAMES} from "./ai/settings.js";
 import {withIssue} from "./support/issueKey.js";
 import {setupJira, JIRA_ENV_NAMES} from "./jira/credentials.js";
 import fetch from "./git/fetch.js";
@@ -111,7 +111,7 @@ async function runStandaloneCommand() {
             ],
         }]);
 
-        if (part === 'ai' || part === 'both') await setupApiKey();
+        if (part === 'ai' || part === 'both') await setupAi();
         if (part === 'jira' || part === 'both') await setupJira();
         if (!part) console.log(chalk.dim('\n Nothing to do.\n'));
 

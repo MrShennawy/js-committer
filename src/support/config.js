@@ -32,9 +32,11 @@ export const DEFAULTS = {
     // Warn before staging likely secrets or very large files.
     scanSecrets: true,
     maxFileSizeMb: 5,
-    // Which model writes the messages. See src/ai/providers.
+    // Which model writes the messages. See src/ai/providers. A provider set
+    // here is the project's decision and overrides the user's own choice;
+    // leaving it null lets each person pick.
     ai: {
-        provider: 'gemini',
+        provider: null,
         model: null,
         baseUrl: null,
     },
