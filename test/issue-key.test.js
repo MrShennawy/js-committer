@@ -7,25 +7,29 @@ test('a hyphen inside the description is not mistaken for the separator', () => 
     assert.deepEqual(splitIssue('update auth-service'), {sentence: 'update auth-service', issueId: null});
     assert.deepEqual(splitIssue('rename a - b'), {sentence: 'rename a - b', issueId: null});
     assert.deepEqual(splitIssue('support multi-word - names'), {sentence: 'support multi-word - names', issueId: null});
+    assert.deepEqual(splitIssue('drop node - 18'), {sentence: 'drop node - 18', issueId: null});
 });
 
 test('a trailing issue key is split off', () => {
-    assert.deepEqual(splitIssue('update auth-service - SHEN-33'), {
-        sentence: 'update auth-service',
-        issueId: 'SHEN-33',
-    });
-    assert.deepEqual(splitIssue('fix login - #42'), {sentence: 'fix login', issueId: '#42'});
-});
-
-test('commits written with the old separator still parse', () => {
     assert.deepEqual(splitIssue('update auth-service ❯ SHEN-33'), {
         sentence: 'update auth-service',
         issueId: 'SHEN-33',
     });
+    assert.deepEqual(splitIssue('fix login ❯ #42'), {sentence: 'fix login', issueId: '#42'});
+});
+
+test('the hyphen form is still read back, for Jira style keys only', () => {
+    assert.deepEqual(splitIssue('update auth-service - SHEN-33'), {
+        sentence: 'update auth-service',
+        issueId: 'SHEN-33',
+    });
+
+    // A bare number after a hyphen is ordinary prose, not a reference.
+    assert.deepEqual(splitIssue('bump timeout - 42'), {sentence: 'bump timeout - 42', issueId: null});
 });
 
 test('withIssue and splitIssue round trip', () => {
-    for (const [sentence, id] of [['update auth-service', 'SHEN-33'], ['rename a - b', 'AB-1'], ['plain', null]]) {
+    for (const [sentence, id] of [['update auth-service', 'SHEN-33'], ['rename a - b', 'AB-1'], ['bump timeout - 42', '#7'], ['plain', null]]) {
         assert.deepEqual(splitIssue(withIssue(sentence, id)), {sentence, issueId: id});
     }
 });
