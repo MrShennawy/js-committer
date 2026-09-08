@@ -21,7 +21,9 @@ export const canAmend = () => {
 }
 
 /** Replaces the previous commit, keeping whatever is currently staged. */
-export const amendCommit = (message) => git(['commit', '--amend', '-m', message]);
+export const amendCommit = (message, body = null) => git(
+    body ? ['commit', '--amend', '-m', message, '-m', body] : ['commit', '--amend', '-m', message]
+);
 
 export const pushHint = () => chalk.dim(
     `\n The previous commit was already pushed. To publish the amended version run\n` +

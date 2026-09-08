@@ -27,6 +27,12 @@ export const DEFAULTS = {
     buildCommand: 'npm run build',
     // Conventional commits recommend keeping the subject short.
     maxSubjectLength: 72,
+    // How many messages to choose between. 1 skips the picker entirely.
+    suggestions: 3,
+    // 'auto' adds a body to large changes, 'always' and 'never' are absolute.
+    commitBody: 'auto',
+    // What counts as large enough to deserve a body.
+    bodyThreshold: {files: 5, diffChars: 4000},
     // Committing straight to these asks for confirmation first.
     protectedBranches: ['main', 'master', 'develop', 'production'],
     // Warn before staging likely secrets or very large files.
@@ -76,6 +82,7 @@ export const loadConfig = ({reload = false} = {}) => {
         // Nested objects merge rather than replace, so setting one AI field
         // does not silently drop the others.
         ai: {...DEFAULTS.ai, ...(data.ai ?? {})},
+        bodyThreshold: {...DEFAULTS.bodyThreshold, ...(data.bodyThreshold ?? {})},
         configPath: path,
     };
 

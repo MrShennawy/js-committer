@@ -170,6 +170,10 @@ async function main() {
     const commitSentence = withIssue(commitData.sentence, commitData.issueId);
 
     console.log(`\n [ Your commit => ${chalk.green(commitSentence)} ] \n`);
+    if (commitData.body) {
+        for (const line of commitData.body.split('\n')) console.log(`   ${chalk.dim(line)}`);
+        console.log();
+    }
 
     if (flags.dryRun) {
         reportDryRun(paths, commitSentence);
@@ -180,13 +184,13 @@ async function main() {
 
     if (flags.amend) {
         const wasPushed = isLastCommitPushed();
-        amendCommit(commitSentence);
+        amendCommit(commitSentence, commitData.body);
         console.log(chalk.green('\n The previous commit has been rewritten.\n'));
         if (wasPushed) console.log(pushHint());
         return;
     }
 
-    commit.command(commitSentence);
+    commit.command(commitSentence, commitData.body);
     await pull.command();
 
     const pushStatus = await push.command();

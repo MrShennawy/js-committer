@@ -3,6 +3,7 @@ import ora from "ora";
 import gitDiff from "../git/diff.js";
 import {parseSubject, formatSubject, isKnownType, typeNames, typeGuide} from "../git/commit.js";
 import detectType from "../support/detectType.js";
+import detectScope from "../support/detectScope.js";
 import loadConfig from "../support/config.js";
 import {resolveAi, clearApiKey} from "./settings.js";
 import {redact} from "../support/redact.js";
@@ -44,11 +45,12 @@ const fallbackDescription = (type, summary) => {
     return byType[type] ?? 'update project files';
 };
 
-const buildPrompt = (summary, {diff, stat, truncated}) => `
+const buildPrompt = (summary, {diff, stat, truncated}, {count, scope, wantBody}) => `
 You are an expert at writing conventional git commit messages that follow industry best practices.
 
 CONTEXT:
 - Task Summary: ${summary?.trim() || 'No summary provided'}
+${scope ? `- Every changed file lives under the "${scope}" area of the project` : ''}
 - Changed Files:
 ${stat || '(no file statistics available)'}
 - Git Diff Changes${truncated ? ' (truncated to the first part of the diff)' : ''}:
@@ -56,9 +58,9 @@ ${diff || '(no textual diff available)'}
 
 TASK:
 Read the diff, decide which conventional commit type describes it best, and
-generate a single-line commit message.
+write ${count} alternative single line commit messages for the same change.
 
-AVAILABLE TYPES (choose exactly one):
+AVAILABLE TYPES (choose exactly one per message):
 ${typeGuide()}
 
 CHOOSING THE TYPE:
@@ -69,31 +71,67 @@ CHOOSING THE TYPE:
 5. If a task summary is provided, let it inform the type but let the diff decide
 
 REQUIREMENTS:
-1. Format: "<type>: <concise description of what was changed>"
+1. Format: "<type>${scope ? `(${scope})` : ''}: <concise description of what was changed>"
 2. The type must be one of: ${typeNames().join(', ')}
-3. Use present tense, imperative mood (e.g., "add", "fix", "update", not "added", "fixed", "updated")
-4. Start the description with a lowercase letter
-5. No period at the end
-6. Be specific about WHAT was changed, not just WHERE
-7. Maximum ${loadConfig().maxSubjectLength} characters total (including the type)
-8. Use single quotes for strings, never backticks
+${scope ? `3. Use the scope "${scope}" in every message` : '3. Do not invent a scope'}
+4. Use present tense, imperative mood ("add", "fix", "update")
+5. Start the description with a lowercase letter, no period at the end
+6. Be specific about WHAT changed, not just WHERE
+7. Maximum ${loadConfig().maxSubjectLength} characters per message
+8. The ${count} messages must be genuinely different readings of the change,
+   not reworded versions of one another. Put the best one first.
+${wantBody ? `9. Also write a short body: two to four bullet lines, each starting with "- ",
+   explaining the notable parts of the change. Leave it empty if the subject says enough.` : ''}
 
-EXAMPLES:
-- feat: add user authentication middleware
-- fix: resolve memory leak in image processing
-- refactor: extract validation logic into separate module
-- docs: update API endpoint documentation
-- test: add unit tests for payment validation
-
-Generate ONLY the commit message, no additional text or explanations.
+ANSWER FORMAT:
+Reply with JSON only, no prose and no code fences:
+{"messages": [${Array.from({length: count}, (_, i) => `"message ${i + 1}"`).join(', ')}]${wantBody ? ', "body": "- first point\\n- second point"' : ''}}
 `;
 
-/** Keeps only the first line and strips any markdown fencing the model adds. */
+/** Strips code fences and returns the first non-empty line. */
 const normalise = (text) => text
     .replace(/```[a-z]*|```/gi, '')
     .split('\n')
     .map(line => line.trim())
     .find(line => line.length) ?? '';
+
+/**
+ * Reads the model's answer, which is asked for as JSON but is not always
+ * given that way, so a plain list of lines is accepted too.
+ *
+ * @returns {{messages: string[], body: string|null}}
+ */
+export const parseReply = (reply) => {
+    const text = (reply ?? '').replace(/```[a-z]*\n?|```/gi, '').trim();
+    if (!text) return {messages: [], body: null};
+
+    const start = text.indexOf('{');
+    const end = text.lastIndexOf('}');
+
+    if (start !== -1 && end > start) {
+        try {
+            const parsed = JSON.parse(text.slice(start, end + 1));
+            // A well formed answer is trusted even when it is empty, so the
+            // raw JSON is never mistaken for a commit message.
+            if (Array.isArray(parsed.messages)) {
+                const messages = parsed.messages
+                    .filter(item => typeof item === 'string' && item.trim())
+                    .map(item => item.trim());
+
+                return {messages, body: parsed.body?.trim() || null};
+            }
+        } catch {
+            // Not valid JSON after all; fall through to reading it as lines.
+        }
+    }
+
+    const messages = text
+        .split('\n')
+        .map(line => line.trim().replace(/^[-*\d.)\s]+/, '').trim())
+        .filter(line => line.length);
+
+    return {messages, body: null};
+}
 
 /**
  * Turns whatever the model replied into a valid "type: description" message.
@@ -134,55 +172,94 @@ export const resolveMessage = (text, guessedType, summary = null) => {
  * @param {{summary?: string|null, jiraIssueType?: string|null}} context
  * @returns {Promise<string>} a message shaped as "type: description"
  */
-export const generateCommitMessage = async (paths = ['.'], {summary = null, jiraIssueType = null} = {}) => {
+/** True when the change is big enough that a subject alone will not cover it. */
+const deservesBody = (changes, config) => {
+    if (config.commitBody === 'always') return true;
+    if (config.commitBody === 'never') return false;
+
+    return changes.files.length >= config.bodyThreshold.files
+        || changes.diff.length >= config.bodyThreshold.diffChars;
+}
+
+/**
+ * Produces the commit messages to choose between.
+ *
+ * The model picks the type, and the scope comes from the changed paths rather
+ * than from the model, because the paths are a fact and the model would be
+ * guessing. Everything is validated before it is offered.
+ *
+ * @param {string[]} paths - the paths that are about to be staged
+ * @param {{summary?: string|null, jiraIssueType?: string|null}} context
+ * @returns {Promise<{messages: string[], body: string|null, generated: boolean}>}
+ */
+export const generateSuggestions = async (paths = ['.'], {summary = null, jiraIssueType = null} = {}) => {
+    const config = loadConfig();
     const collected = gitDiff.collect(paths);
 
-    // Worked out up front so it is available whether or not the model answers.
     const guessedType = configuredType(detectType(collected.files, jiraIssueType));
+    const scope = config.autoScope ? detectScope(collected.files, {allowed: config.scopes}) : null;
 
     // Nothing that looks like a credential is allowed into the prompt, whoever
     // the provider turns out to be.
     const cleaned = redact(collected.diff);
     const changes = {...collected, diff: cleaned.text};
+
+    const fallback = formatSubject({
+        type: guessedType,
+        scope,
+        sentence: fallbackDescription(guessedType, summary),
+    });
+
+    const ai = flags.noAi ? null : await resolveAi();
+    if (!ai) return {messages: [fallback], body: null, generated: false};
+
     if (cleaned.removed) {
         console.log(chalk.dim(` ${cleaned.removed} value(s) that looked like credentials were removed from the diff.`));
     }
-    const fallback = `${guessedType}: ${fallbackDescription(guessedType, summary)}`;
 
-    // No model configured, or the user opted out: fall back quietly.
-    const ai = flags.noAi ? null : await resolveAi();
-    if (!ai) return fallback;
-
+    const count = Math.max(1, Math.min(5, config.suggestions));
+    const wantBody = deservesBody(changes, config);
     const spinner = ora('Content generation ... \n').start();
 
     try {
         const reply = await ai.provider.generate({
-            prompt: buildPrompt(summary, changes),
+            prompt: buildPrompt(summary, changes, {count, scope, wantBody}),
             apiKey: ai.apiKey,
             model: ai.model,
             baseUrl: ai.baseUrl,
         });
 
-        const resolved = resolveMessage(reply, guessedType, summary);
+        const {messages, body} = parseReply(reply);
 
-        if (!resolved) {
+        const resolved = messages
+            .map(message => resolveMessage(message, guessedType, summary)?.message)
+            .filter(Boolean);
+
+        // Keep the order the model chose, without repeats.
+        const unique = [...new Set(resolved)];
+
+        if (!unique.length) {
             spinner.text = chalk.yellow('The model returned no message, using a fallback.');
             spinner.warn();
-            return fallback;
+            return {messages: [fallback], body: null, generated: false};
         }
 
-        const chosenType = parseSubject(resolved.message).type;
-        const note = resolved.corrected ? `(type set to '${chosenType}')` : `(type: ${chosenType})`;
-        spinner.text = chalk.green(`Content generated. ${chalk.dim(note)}`);
+        spinner.text = chalk.green(`Content generated. ${chalk.dim(`(${unique.length} suggestion${unique.length > 1 ? 's' : ''})`)}`);
         spinner.succeed();
 
-        return resolved.message;
+        return {messages: unique, body: body || null, generated: true};
     } catch (err) {
         spinner.fail();
         handleError(err);
         console.log(chalk.dim(` Writing the message without AI (detected type: ${guessedType}).\n`));
-        return fallback;
+        return {messages: [fallback], body: null, generated: false};
     }
+};
+
+/** The single best message, for callers that do not offer a choice. */
+export const generateCommitMessage = async (paths, context) => {
+    const {messages} = await generateSuggestions(paths, context);
+    return messages[0];
 };
 
 /**

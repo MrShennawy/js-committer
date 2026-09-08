@@ -163,7 +163,9 @@ const issueId = (def = null, {required = false} = {}) => {
  * Creates the commit. The message is passed as a separate process argument,
  * so quotes, backticks and $(...) inside it are never evaluated by a shell.
  */
-const command = (message) => git(['commit', '-m', message]);
+const command = (message, body = null) => git(
+    body ? ['commit', '-m', message, '-m', body] : ['commit', '-m', message]
+);
 
 export default {
     command,
