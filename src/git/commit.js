@@ -4,18 +4,34 @@ import git, {hasCommits} from "../support/git.js";
 import flags from "../support/args.js";
 import branch from "./branch.js";
 import {splitIssue, withIssue, issueKeyFromBranch} from "../support/issueKey.js";
+import loadConfig from "../support/config.js";
 
-const types = [
-    {value: 'feat', short: 'feat', name: `${chalk.bold('feat:')} A new feature for the user.`},
-    {value: 'fix', short: 'fix', name: `${chalk.bold('fix:')} A bug fix for the user.`},
-    {value: 'docs', short: 'docs', name: `${chalk.bold('docs:')} Documentation only changes.`},
-    {value: 'style', short: 'style', name: `${chalk.bold('style:')} Changes that do not affect the meaning of the code.`},
-    {value: 'refactor', short: 'refactor', name: `${chalk.bold('refactor:')} A code change that neither fixes a bug nor adds a feature.`},
-    {value: 'perf', short: 'perf', name: `${chalk.bold('perf:')} A code change that improves performance.`},
-    {value: 'test', short: 'test', name: `${chalk.bold('test:')} Adding missing tests or correcting existing tests.`},
-    {value: 'build', short: 'build', name: `${chalk.bold('build:')} Changes that affect the build system or external dependencies.`},
-    {value: 'chore', short: 'chore', name: `${chalk.bold('chore:')} Other changes that don't modify src or test files.`},
-];
+// Descriptions for the standard types, used when prompting the model. A type
+// added through .committerrc simply has no description here.
+const TYPE_DESCRIPTIONS = {
+    feat: 'a new feature for the user',
+    fix: 'a bug fix for the user',
+    docs: 'documentation only changes',
+    style: 'changes that do not affect the meaning of the code',
+    refactor: 'a code change that neither fixes a bug nor adds a feature',
+    perf: 'a code change that improves performance',
+    test: 'adding missing tests or correcting existing tests',
+    build: 'changes that affect the build system or external dependencies',
+    chore: 'other changes that do not modify src or test files',
+    ci: 'changes to the continuous integration configuration',
+    revert: 'reverting a previous commit',
+};
+
+/** The types this repository accepts, from .committerrc or the defaults. */
+export const typeNames = () => loadConfig().types;
+
+/** True when the value is one of this repository's commit types. */
+export const isKnownType = (value) => typeNames().includes(value);
+
+/** The types with their descriptions, for the model prompt. */
+export const typeGuide = () => typeNames()
+    .map(name => `- ${name}: ${TYPE_DESCRIPTIONS[name] ?? 'a project specific change type'}`)
+    .join('\n');
 
 // A conventional commit prefix: a type, an optional scope and an optional "!"
 // marking a breaking change, e.g. "feat", "fix(api)" or "refactor(core)!".
@@ -40,7 +56,7 @@ export const parseSubject = (subject) => {
         const match = rest.slice(0, colon).trim().match(PREFIX_PATTERN);
         const candidate = match?.[1].toLowerCase();
 
-        if (candidate && types.some(item => item.value === candidate)) {
+        if (candidate && isKnownType(candidate)) {
             type = candidate;
             scope = match[2] || null;
             breaking = match[3] === '!';
@@ -78,12 +94,6 @@ const lastCommit = ({getIssueId = false, full = false, avoidArg = false} = {}) =
     // separately, so it belongs in the prefilled sentence.
     return withIssue(formatSubject(parsed), parsed.issueId);
 };
-
-/** True when the value is one of the conventional commit types. */
-export const isKnownType = (value) => types.some(item => item.value === value);
-
-/** The bare type names, in the order they are documented. */
-export const typeNames = types.map(item => item.value);
 
 /**
  * Converts any git remote URL into its browsable https form.
@@ -160,5 +170,6 @@ export default {
     sentence,
     issueId,
     lastCommit,
-    types,
+    typeNames,
+    typeGuide,
 }

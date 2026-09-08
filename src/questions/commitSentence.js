@@ -5,6 +5,7 @@ import {generateCommitMessage} from "../ai/GoogleGenerativeAI.js";
 import branch from "../git/branch.js";
 import {issueKeyFromBranch} from "../support/issueKey.js";
 import flags from "../support/args.js";
+import loadConfig from "../support/config.js";
 
 /**
  * Asks everything needed to build the commit subject.
@@ -49,7 +50,8 @@ export default async (paths = ['.']) => {
 
     // Only ask for an issue id when Jira did not already provide one.
     if (!output.issueId) {
-        const answers = await inquirer.prompt([commit.issueId()]);
+        const required = loadConfig().requireIssue;
+        const answers = await inquirer.prompt([commit.issueId(null, {required})]);
         output.issueId = answers.issueId?.trim() || null;
     }
 

@@ -2,24 +2,24 @@ import {GoogleGenerativeAI as GeminiClient} from "@google/generative-ai";
 import chalk from "chalk";
 import ora from "ora";
 import gitDiff from "../git/diff.js";
-import {parseSubject, formatSubject, isKnownType, typeNames} from "../git/commit.js";
+import {parseSubject, formatSubject, isKnownType, typeNames, typeGuide} from "../git/commit.js";
 import detectType from "../support/detectType.js";
+import loadConfig from "../support/config.js";
 import {resolveApiKey, clearApiKey} from "./apiKey.js";
 import flags from "../support/args.js";
 
 const MODEL = "gemini-2.5-flash-lite";
-const MAX_SUBJECT_LENGTH = 72;
 
-const TYPE_GUIDE = `
-- feat: a new feature for the user
-- fix: a bug fix for the user
-- docs: documentation only changes
-- style: changes that do not affect the meaning of the code (formatting, whitespace)
-- refactor: a code change that neither fixes a bug nor adds a feature
-- perf: a code change that improves performance
-- test: adding missing tests or correcting existing tests
-- build: changes to the build system or external dependencies
-- chore: other changes that do not modify src or test files`;
+/**
+ * A repository may narrow the list of types, so a type detected from the file
+ * names has to be brought back into that list before it is used.
+ */
+const configuredType = (type) => {
+    if (isKnownType(type)) return type;
+
+    const available = typeNames();
+    return available.includes('chore') ? 'chore' : available[0];
+};
 
 /** Description used when the model is unavailable; the type is added separately. */
 const fallbackDescription = (type, summary) => {
@@ -60,7 +60,8 @@ TASK:
 Read the diff, decide which conventional commit type describes it best, and
 generate a single-line commit message.
 
-AVAILABLE TYPES (choose exactly one):${TYPE_GUIDE}
+AVAILABLE TYPES (choose exactly one):
+${typeGuide()}
 
 CHOOSING THE TYPE:
 1. Judge by what the change does, not by which folder it lives in
@@ -71,12 +72,12 @@ CHOOSING THE TYPE:
 
 REQUIREMENTS:
 1. Format: "<type>: <concise description of what was changed>"
-2. The type must be one of: ${typeNames.join(', ')}
+2. The type must be one of: ${typeNames().join(', ')}
 3. Use present tense, imperative mood (e.g., "add", "fix", "update", not "added", "fixed", "updated")
 4. Start the description with a lowercase letter
 5. No period at the end
 6. Be specific about WHAT was changed, not just WHERE
-7. Maximum ${MAX_SUBJECT_LENGTH} characters total (including the type)
+7. Maximum ${loadConfig().maxSubjectLength} characters total (including the type)
 8. Use single quotes for strings, never backticks
 
 EXAMPLES:
@@ -112,9 +113,13 @@ export const resolveMessage = (text, guessedType, summary = null) => {
     const parsed = parseSubject(normalise(text ?? ''));
     if (!parsed.type && !parsed.sentence) return null;
 
+    // The fallback is clamped too: a caller may pass a type this repository
+    // does not list.
+    const fallbackType = configuredType(guessedType);
+
     if (!parsed.type || !isKnownType(parsed.type)) {
-        const description = parsed.sentence || fallbackDescription(guessedType, summary);
-        return {message: formatSubject({type: guessedType, sentence: description}), corrected: true};
+        const description = parsed.sentence || fallbackDescription(fallbackType, summary);
+        return {message: formatSubject({type: fallbackType, sentence: description}), corrected: true};
     }
 
     return {message: formatSubject(parsed), corrected: false};
@@ -135,7 +140,7 @@ export const generateCommitMessage = async (paths = ['.'], {summary = null, jira
     const changes = gitDiff.collect(paths);
 
     // Worked out up front so it is available whether or not the model answers.
-    const guessedType = detectType(changes.files, jiraIssueType);
+    const guessedType = configuredType(detectType(changes.files, jiraIssueType));
     const fallback = `${guessedType}: ${fallbackDescription(guessedType, summary)}`;
 
     // No key, or the user opted out: fall back quietly rather than nagging.
