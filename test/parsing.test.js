@@ -1,11 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {parseSubject, remoteToHttpUrl} from '../src/git/commit.js';
+import {parseSubject, formatSubject, remoteToHttpUrl} from '../src/git/commit.js';
 import status from '../src/git/status.js';
 
 test('parseSubject keeps colons that belong to the description', () => {
     assert.deepEqual(parseSubject('feat: support a:b syntax'), {
         type: 'feat',
+        scope: null,
+        breaking: false,
         sentence: 'support a:b syntax',
         issueId: null,
     });
@@ -14,6 +16,8 @@ test('parseSubject keeps colons that belong to the description', () => {
 test('parseSubject extracts the issue id', () => {
     assert.deepEqual(parseSubject('fix: broken login ❯ ABC-12'), {
         type: 'fix',
+        scope: null,
+        breaking: false,
         sentence: 'broken login',
         issueId: 'ABC-12',
     });
@@ -22,9 +26,19 @@ test('parseSubject extracts the issue id', () => {
 test('parseSubject leaves an unknown prefix in the sentence', () => {
     assert.deepEqual(parseSubject('wip: something'), {
         type: null,
+        scope: null,
+        breaking: false,
         sentence: 'wip: something',
         issueId: null,
     });
+});
+
+test('parseSubject reads a scope and a breaking marker', () => {
+    const parsed = parseSubject('refactor(core)!: drop the legacy loader');
+    assert.equal(parsed.type, 'refactor');
+    assert.equal(parsed.scope, 'core');
+    assert.equal(parsed.breaking, true);
+    assert.equal(formatSubject(parsed), 'refactor(core)!: drop the legacy loader');
 });
 
 test('remoteToHttpUrl normalises every remote form', () => {

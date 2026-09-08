@@ -17,23 +17,33 @@ const types = [
 
 const ISSUE_SEPARATOR = '❯';
 
+// A conventional commit prefix: a type, an optional scope and an optional "!"
+// marking a breaking change, e.g. "feat", "fix(api)" or "refactor(core)!".
+const PREFIX_PATTERN = /^([a-zA-Z]+)(?:\(([^)]*)\))?(!?)$/;
+
 /**
  * Splits a commit subject into its parts.
- * Only the first colon separates the type from the description, so a subject
+ * Only the first colon separates the prefix from the description, so a subject
  * such as "feat: support a:b syntax" keeps its remaining colons.
  *
  * @param {string} subject
- * @returns {{type: string|null, sentence: string, issueId: string|null}}
+ * @returns {{type: string|null, scope: string|null, breaking: boolean, sentence: string, issueId: string|null}}
  */
 export const parseSubject = (subject) => {
-    let rest = subject;
+    let rest = subject ?? '';
     let type = null;
+    let scope = null;
+    let breaking = false;
 
     const colon = rest.indexOf(':');
     if (colon !== -1) {
-        const candidate = rest.slice(0, colon).trim();
-        if (types.some(item => item.value === candidate)) {
+        const match = rest.slice(0, colon).trim().match(PREFIX_PATTERN);
+        const candidate = match?.[1].toLowerCase();
+
+        if (candidate && types.some(item => item.value === candidate)) {
             type = candidate;
+            scope = match[2] || null;
+            breaking = match[3] === '!';
             rest = rest.slice(colon + 1);
         }
     }
@@ -41,9 +51,17 @@ export const parseSubject = (subject) => {
     const [sentence, issueId] = rest.split(ISSUE_SEPARATOR);
     return {
         type,
+        scope,
+        breaking,
         sentence: (sentence ?? '').trim(),
         issueId: issueId ? issueId.trim() : null,
     };
+};
+
+/** Rebuilds a subject from its parts, preserving any scope and breaking marker. */
+export const formatSubject = ({type, scope = null, breaking = false, sentence}) => {
+    if (!type) return sentence;
+    return `${type}${scope ? `(${scope})` : ''}${breaking ? '!' : ''}: ${sentence}`;
 };
 
 /**
@@ -51,7 +69,7 @@ export const parseSubject = (subject) => {
  * Returns null on a repository without commits instead of exiting, so the tool
  * still works on a freshly initialised repo.
  */
-const lastCommit = ({getType = false, getIssueId = false, full = false, avoidArg = false} = {}) => {
+const lastCommit = ({getIssueId = false, full = false, avoidArg = false} = {}) => {
     if (!flags.lastCommit && !avoidArg) return null;
     if (!hasCommits()) return null;
 
@@ -60,10 +78,18 @@ const lastCommit = ({getType = false, getIssueId = false, full = false, avoidArg
     if (full) return subject;
 
     const parsed = parseSubject(subject);
-    if (getType) return parsed.type;
     if (getIssueId) return parsed.issueId;
-    return parsed.sentence;
+
+    // The type is part of the message now that it is no longer asked for
+    // separately, so it belongs in the prefilled sentence.
+    return formatSubject(parsed);
 };
+
+/** True when the value is one of the conventional commit types. */
+export const isKnownType = (value) => types.some(item => item.value === value);
+
+/** The bare type names, in the order they are documented. */
+export const typeNames = types.map(item => item.value);
 
 /**
  * Converts any git remote URL into its browsable https form.
@@ -96,23 +122,6 @@ export const commitLink = () => {
     return `${remoteToHttpUrl(remote)}/commit/${sha}`;
 };
 
-const type = (def = null) => {
-    return {
-        type: 'rawlist',
-        pageSize: 10,
-        name: 'type',
-        default: def ?? lastCommit({getType: true}),
-        prefix: `\n ${chalk.bold.red('❯')}`,
-        suffix: "\n",
-        message: 'Select the desired commit type:',
-        choices: types,
-        validate: (value) => {
-            if (!value) throw new RequiredError('You need to select type');
-            return true;
-        }
-    }
-}
-
 const sentence = (def = null) => {
     return {
         type: 'default-editable-input',
@@ -120,7 +129,7 @@ const sentence = (def = null) => {
         default: def ?? lastCommit(),
         prefix: `\n ${chalk.bold.red('❯')}`,
         suffix: "\n",
-        message: 'Enter the commit sentence:',
+        message: 'Enter the commit message:',
         validate: (value) => {
             if (!value) throw new RequiredError('The commit sentence is required');
             return true;
@@ -151,7 +160,6 @@ const command = (message) => git(['commit', '-m', message]);
 
 export default {
     command,
-    type,
     sentence,
     issueId,
     lastCommit,

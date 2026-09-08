@@ -29,6 +29,7 @@ __Committer__ is a package that streamlines the process of crafting standard Git
 ## Features
 
 - 📝 Standardized commit message formatting
+- 🏷️ Automatic commit type detection, no type to pick
 - 🔍 Interactive file selection for staged changes
 - 🔄 Re-use last commit message
 - 🏗️ Build integration support
@@ -45,7 +46,7 @@ The package provides the `cmt` command with several powerful options:
 ```bash
     cmt # Start the interactive commit process
     cmt -s # Start commit process with file selection
-    cmt -lc # Prefill the prompts from the last commit
+    cmt -lc # Reuse the last commit message
     cmt -b # Run a build command first, then commit
     cmt -jr # Commit with JIRA integration
 ```
@@ -69,9 +70,27 @@ When using the `-jr` flag, Committer will:
 Committer includes an advanced AI-powered commit message generation feature using Google's Generative AI (Gemini). This feature:
 
 - 🧠 Automatically analyzes your code changes
+- 🏷️ Picks the conventional commit type for you (`feat`, `fix`, `docs`, ...)
 - 📝 Generates concise, professional commit messages
 - 🔄 Integrates with JIRA summaries when available
 - ✨ Follows commit message best practices
+
+### Commit type detection
+
+The commit type is no longer asked for. It is chosen in this order:
+
+1. The AI reads the diff and picks the type together with the description
+2. If the AI answers with a type outside the conventional list, the type is
+   corrected while its wording is kept
+3. If the AI is unavailable (no API key, no network), the type is worked out
+   from the changed files: docs-only changes become `docs`, test-only changes
+   `test`, dependency and build files `build`, a new file `feat`, and edits to
+   existing files `fix`. A JIRA issue type, when available, wins over all of
+   these
+
+Whatever is chosen appears in the editable commit prompt, so you can always
+change it before committing. Scopes and breaking-change markers are supported,
+for example `feat(api)!: drop v1 endpoints`.
 
 ### Setup
 
