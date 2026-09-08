@@ -1,0 +1,6 @@
+{
+  "requireIssue": false,
+  "protectedBranches": ["main", "master"],
+  "suggestions": 3,
+  "commitBody": "auto"
+}

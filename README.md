@@ -36,7 +36,11 @@ __Committer__ is a package that streamlines the process of crafting standard Git
 - 🎯 JIRA integration, with the issue key read from your branch name
 - 🚀 Streamlined git workflow
 - 🤖 AI-powered commit message generation, set up in a single keystroke
-- 🔑 Reads GEMINI_API_KEY / GOOGLE_API_KEY, and works fine without any key
+- 🧩 Splits a large change into separate, coherent commits
+- 🔒 Warns before you commit a secret or push straight to `main`
+- 🏠 Runs against a local model, so the diff need never leave your machine
+- ⚙️ Per-project rules in `.committerrc.json`
+- 🔑 Reads the usual provider env vars, and works fine without any key
 
 ## Usage
 
@@ -50,12 +54,78 @@ The package provides the `cmt` command with several powerful options:
     cmt -lc # Reuse the last commit message
     cmt -b # Run a build command first, then commit
     cmt -jr # Commit with JIRA integration
+    cmt --split # Divide the change into several commits
+    cmt --amend # Rewrite the previous commit
+    cmt --undo # Undo the previous commit, keeping the changes
+    cmt --dry-run # Show what would happen and stop
+    cmt -y # Accept everything, for scripts and CI
     cmt --no-ai # Write the message yourself this once
     cmt --setup # Connect the AI and Jira
+    cmt --version # Print the version
     cmt --help # Show every option
 ```
 
 The flags can be combined, for example `cmt -s -b -jr`.
+
+## Splitting a change
+
+`cmt --split` groups the changed files into separate commits, shows the plan,
+and lets you reword an entry or go back to a single commit:
+
+```
+Planned 3 commits:
+
+ 1. build: add nodemailer
+     package.json
+
+ 2. feat: add password reset endpoint
+     src/reset.js
+     src/mailer.js
+
+ 3. test: cover the reset flow
+     test/reset.test.js
+```
+
+Each group is staged and committed on its own, so the commits stand alone. The
+plan is checked against the real change set first: a file the model invented is
+dropped, a file listed twice is committed once, and anything it missed is added
+to a final group, so the commits together always reproduce your change exactly.
+
+## Safety checks
+
+Before anything is staged, Committer looks at two things:
+
+- **The branch.** Committing straight to `main`, `master`, `develop` or
+  `production` asks for confirmation first.
+- **The contents.** `.env` files, ssh keys, certificate stores, AWS, Google,
+  Atlassian, GitHub and Slack tokens, hard coded credentials and oversized
+  files are listed for you to confirm.
+
+Both are warnings, never refusals, since only you know whether a match matters.
+Under `-y` they refuse instead: an unattended run must not be able to push to
+`main` or commit a key on its own.
+
+## Project configuration
+
+Drop a `.committerrc.json` in the repository root to make the rules the
+project's rather than each person's. Every key is optional:
+
+```json
+{
+  "types": ["feat", "fix", "docs", "refactor", "test", "chore"],
+  "scopes": ["api", "web", "db"],
+  "autoScope": true,
+  "requireIssue": false,
+  "buildCommand": "npm run build",
+  "maxSubjectLength": 72,
+  "suggestions": 3,
+  "commitBody": "auto",
+  "protectedBranches": ["main", "master", "develop"],
+  "scanSecrets": true,
+  "maxFileSizeMb": 5,
+  "ai": { "provider": "gemini", "model": null, "baseUrl": null }
+}
+```
 
 
 ## Configuration
@@ -110,6 +180,37 @@ Committer includes an advanced AI-powered commit message generation feature usin
 - 📝 Generates concise, professional commit messages
 - 🔄 Integrates with JIRA summaries when available
 - ✨ Follows commit message best practices
+
+### Choosing the model
+
+Four backends sit behind the same interface, chosen during `cmt --setup` or
+pinned by the project in `.committerrc`:
+
+| Provider | Key needed | Where the diff goes |
+|---|---|---|
+| `gemini` | yes | Google |
+| `openai` | yes | OpenAI |
+| `anthropic` | yes | Anthropic |
+| `ollama` | **no** | **nowhere, it runs on your machine** |
+
+Use `ollama` when the code is not allowed to leave your network: there is no
+key to set up and nothing is sent anywhere. `model` and `baseUrl` let you point
+at a specific model or a self-hosted endpoint.
+
+Whatever the provider, the diff is redacted before the prompt is built. Private
+key blocks, AWS, Google, Atlassian, GitHub, Slack and OpenAI style tokens, JWTs,
+quoted credential assignments and passwords inside connection strings are
+replaced with placeholders. The key names and the shape of the code survive, so
+the model still understands the change, and you are told how many values were
+removed.
+
+### Picking the message
+
+The model is asked for three different readings of the change, offered as a
+list alongside "Write my own" and "Suggest something else". Large changes also
+get a short body, which you see before it is used. The scope in
+`feat(auth): ...` comes from the changed paths rather than from the model, and
+only appears when the whole change sits under one area.
 
 ### Commit type detection
 
