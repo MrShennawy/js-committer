@@ -12,6 +12,7 @@ import files from "./questions/files.js";
 import build from "./questions/build.js";
 import sentence from "./questions/commitSentence.js";
 import {updateIssueCommitLink} from "./questions/jira.js";
+import {setupApiKey, setApiKeyDirectly, ENV_VARIABLE_NAMES} from "./ai/apiKey.js";
 
 const ISSUE_SEPARATOR = '❯';
 
@@ -37,7 +38,53 @@ const commitComment = (link, description) => ({
     ],
 });
 
+const HELP = `
+ ${chalk.bold('cmt')} - craft standard git commit messages
+
+ ${chalk.yellow('Usage')}
+   cmt                 commit, with the message and type written for you
+   cmt -s              pick which files to stage
+   cmt -lc             reuse the last commit message
+   cmt -b              run a build command first
+   cmt -jr             link the commit to a Jira issue
+   cmt --no-ai         write the message yourself this once
+
+ ${chalk.yellow('Setting up the AI')}
+   cmt --setup         set up or change the Google API key
+   cmt --set-key KEY   store a key directly
+
+   A key in ${ENV_VARIABLE_NAMES.join(', ')} is picked up automatically,
+   which is the best option for CI and shared machines.
+`;
+
+/** Commands that configure the tool and exit, usable outside a repository. */
+async function runStandaloneCommand() {
+    if (flags.help) {
+        console.log(HELP);
+        return true;
+    }
+
+    if (flags.setKey) {
+        const stored = await setApiKeyDirectly(flags.setKey);
+        console.log(stored
+            ? chalk.green('\n The key has been saved.\n')
+            : chalk.red('\n The key was not saved.\n'));
+        console.log(chalk.dim(` Tip: passing a key on the command line leaves it in your shell history.\n Setting ${ENV_VARIABLE_NAMES[0]} avoids that.\n`));
+        process.exitCode = stored ? 0 : 1;
+        return true;
+    }
+
+    if (flags.setup) {
+        await setupApiKey();
+        return true;
+    }
+
+    return false;
+}
+
 async function main() {
+    if (await runStandaloneCommand()) return;
+
     if (!isInsideRepo()) {
         console.error(chalk.red('\n Not a git repository. Run this inside a project tracked by git.\n'));
         process.exit(1);

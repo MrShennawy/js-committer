@@ -1,12 +1,11 @@
 import {GoogleGenerativeAI as GeminiClient} from "@google/generative-ai";
 import chalk from "chalk";
 import ora from "ora";
-import inquirer from "../prompts/register.js";
 import gitDiff from "../git/diff.js";
-import RequiredError from "../exceptions/RequiredError.js";
-import {readSettings, writeSettings} from "../store/handler.js";
 import {parseSubject, formatSubject, isKnownType, typeNames} from "../git/commit.js";
 import detectType from "../support/detectType.js";
+import {resolveApiKey, clearApiKey} from "./apiKey.js";
+import flags from "../support/args.js";
 
 const MODEL = "gemini-2.5-flash-lite";
 const MAX_SUBJECT_LENGTH = 72;
@@ -139,8 +138,9 @@ export const generateCommitMessage = async (paths = ['.'], {summary = null, jira
     const guessedType = detectType(changes.files, jiraIssueType);
     const fallback = `${guessedType}: ${fallbackDescription(guessedType, summary)}`;
 
-    let {apiKey} = readSettings('GoogleGenerativeAI');
-    if (!apiKey) apiKey = await storeApiKey();
+    // No key, or the user opted out: fall back quietly rather than nagging.
+    const apiKey = flags.noAi ? null : await resolveApiKey();
+    if (!apiKey) return fallback;
 
     const spinner = ora('Content generation ... \n').start();
 
@@ -163,50 +163,11 @@ export const generateCommitMessage = async (paths = ['.'], {summary = null, jira
         return resolved.message;
     } catch (err) {
         spinner.fail();
-        const invalidKey = handleError(err);
-
-        // Offer to clear a key that the user may want to replace.
-        if (!invalidKey) {
-            const removeKeyAnswer = await askForRemoveApiKey();
-            if (removeKeyAnswer.removeApiKey) writeSettings('GoogleGenerativeAI', {apiKey: null});
-        }
-
-        console.log(chalk.dim(`\n Falling back to a detected type: ${guessedType}\n`));
+        handleError(err);
+        console.log(chalk.dim(` Writing the message without AI (detected type: ${guessedType}).\n`));
         return fallback;
     }
 };
-
-const askForRemoveApiKey = () => {
-    return inquirer.prompt([
-        {
-            type: 'enhanced-confirm',
-            name: 'removeApiKey',
-            prefix: `\n ${chalk.bold.red('❯')}`,
-            message: `Do you want to remove the current ${chalk.bold.cyan('Google API key')}?`,
-            default: false
-        }
-    ]);
-}
-
-const storeApiKey = async () => {
-    const answers = await inquirer.prompt([
-        {
-            type: 'default-editable-input',
-            name: 'key',
-            hint: `From ❯ ${chalk.cyan('https://aistudio.google.com/app/apikey')}`,
-            prefix: `\n ${chalk.bold.red('❯')}`,
-            suffix: "\n",
-            message: 'Enter Google API Key:',
-            validate: (key) => {
-                if (!key) throw new RequiredError('Api Key is required');
-                return true;
-            }
-        }
-    ]);
-
-    writeSettings('GoogleGenerativeAI', {apiKey: answers.key.trim()});
-    return answers.key.trim();
-}
 
 /**
  * Prints a readable error.
@@ -222,8 +183,8 @@ const handleError = (err) => {
     if (Array.isArray(err?.errorDetails)) {
         for (const detail of err.errorDetails) {
             if (detail.reason === 'API_KEY_INVALID') {
-                writeSettings('GoogleGenerativeAI', {apiKey: null});
-                errorMessage = 'API key not valid. Please pass a valid API key.';
+                clearApiKey();
+                errorMessage = `API key not valid, it has been removed. Run ${chalk.cyan('cmt --setup')} to add a new one.`;
                 invalidKey = true;
                 break;
             }

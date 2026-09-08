@@ -35,7 +35,8 @@ __Committer__ is a package that streamlines the process of crafting standard Git
 - 🏗️ Build integration support
 - 🎯 JIRA integration with automatic issue title fetching
 - 🚀 Streamlined git workflow
-- 🤖 AI-powered commit message generation
+- 🤖 AI-powered commit message generation, set up in a single keystroke
+- 🔑 Reads GEMINI_API_KEY / GOOGLE_API_KEY, and works fine without any key
 
 ## Usage
 
@@ -49,6 +50,9 @@ The package provides the `cmt` command with several powerful options:
     cmt -lc # Reuse the last commit message
     cmt -b # Run a build command first, then commit
     cmt -jr # Commit with JIRA integration
+    cmt --no-ai # Write the message yourself this once
+    cmt --setup # Set up or change the Google API key
+    cmt --help # Show every option
 ```
 
 The flags can be combined, for example `cmt -s -b -jr`.
@@ -94,9 +98,39 @@ for example `feat(api)!: drop v1 endpoints`.
 
 ### Setup
 
-To use the AI feature:
-1. You'll be prompted to provide your Google Generative AI API key on first use
-2. The key will be securely stored for future use
+The key is picked up from the first of these that exists, so most people never
+type anything:
+
+1. `GEMINI_API_KEY`, `GOOGLE_API_KEY` or `GOOGLE_GENERATIVE_AI_API_KEY` in the
+   environment. This is the best option for CI and shared machines, because the
+   key never touches disk.
+2. A key saved by a previous run, stored in `~/.committer-configuration` with
+   owner-only permissions.
+3. A short walkthrough, shown once.
+
+The walkthrough is built around the fact that the key is already in your
+clipboard the moment you create it:
+
+```
+ ❯ Found a key in your clipboard: AIzaSy••••••••••••1a2b. Use it? ( Yes / no )
+```
+
+One Enter and you are done. If the clipboard holds something else, you are
+offered three choices: open the key page in your browser (it reads the
+clipboard again once you have copied), paste a key by hand (hidden as you type),
+or continue without AI. The key is verified against Google before it is saved,
+so a wrong paste is reported immediately rather than halfway through a commit.
+
+`cmt --setup` runs the walkthrough again at any time, and `cmt --set-key KEY`
+stores a key without it.
+
+### Working without AI
+
+The AI is optional. Choosing "Continue without AI" is remembered, and Committer
+then writes the message from the detected type with no further questions. The
+same happens automatically when there is no network, when the key is rejected,
+or when Committer runs without a terminal, such as in CI. It never blocks a
+commit.
 
 ### Features
 - Analyzes git diff to understand changes
