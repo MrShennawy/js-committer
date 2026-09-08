@@ -1,36 +1,38 @@
 import JiraApi from './api.js';
-import { readSettings } from '../store/handler.js';
+import {storedCredentials} from './credentials.js';
 
-const setCredential = () => {
-    const {host, email, token} = readSettings('jira');
+/**
+ * Builds a client. Credentials can be passed in explicitly, which is what the
+ * setup walkthrough does while verifying a token that is not stored yet.
+ */
+const client = (credentials = null) => {
+    const {host, email, token} = credentials ?? storedCredentials() ?? {};
+
     return new JiraApi({
         protocol: 'https',
         host,
         email,
         token,
-        strictSSL: true
     });
 }
 
-const withJira = (callback) => {
-    const jira = setCredential();
-    return callback(jira);
-}
+const getCurrentUser = (credentials) => client(credentials).getCurrentUser();
 
-const getCurrentUser = () => withJira((jira) => jira.getCurrentUser());
+const findIssue = (issueNumber, fields, credentials) => client(credentials).findIssue({issueNumber, fields});
 
-const findIssue = (issueNumber, fields) => withJira((jira) => jira.findIssue({issueNumber, fields}));
+const updateIssue = (issueId, fields, credentials) => client(credentials).updateIssue({issueId, issueUpdate: fields});
 
-const updateIssue = (issueId, fields) => withJira((jira) => jira.updateIssue({issueId, issueUpdate: fields}));
+const addComment = (issueId, commentBody, credentials) => client(credentials).addComment(issueId, commentBody);
 
-const addComment = (issueId, commentBody) => withJira((jira) => jira.addComment(issueId, commentBody));
+const addNewIssue = (fields, credentials) => client(credentials).addNewIssue(fields);
 
-const addNewIssue = (fields) => withJira((jira) => jira.addNewIssue(fields));
+const searchIssues = (jql, fields, credentials) => client(credentials).searchIssues({jql, fields});
 
 export {
     getCurrentUser,
     findIssue,
     addNewIssue,
     updateIssue,
-    addComment
+    addComment,
+    searchIssues,
 }

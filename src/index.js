@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import chalk from "chalk";
-import "./prompts/register.js";
+import inquirer from "./prompts/register.js";
 import {greetings} from "./misc/greetings.js";
 import {isInsideRepo} from "./support/git.js";
 import flags from "./support/args.js";
@@ -13,8 +13,8 @@ import build from "./questions/build.js";
 import sentence from "./questions/commitSentence.js";
 import {updateIssueCommitLink} from "./questions/jira.js";
 import {setupApiKey, setApiKeyDirectly, ENV_VARIABLE_NAMES} from "./ai/apiKey.js";
-
-const ISSUE_SEPARATOR = '❯';
+import {withIssue} from "./support/issueKey.js";
+import {setupJira, JIRA_ENV_NAMES} from "./jira/credentials.js";
 
 /** Atlassian document format body for the "commit link" comment. */
 const commitComment = (link, description) => ({
@@ -49,12 +49,14 @@ const HELP = `
    cmt -jr             link the commit to a Jira issue
    cmt --no-ai         write the message yourself this once
 
- ${chalk.yellow('Setting up the AI')}
-   cmt --setup         set up or change the Google API key
-   cmt --set-key KEY   store a key directly
+ ${chalk.yellow('Setup')}
+   cmt --setup         connect the AI and Jira
+   cmt --set-key KEY   store a Google API key directly
 
-   A key in ${ENV_VARIABLE_NAMES.join(', ')} is picked up automatically,
-   which is the best option for CI and shared machines.
+   Credentials in the environment are picked up automatically, which is the
+   best option for CI and shared machines:
+     AI    ${ENV_VARIABLE_NAMES.join(', ')}
+     Jira  ${JIRA_ENV_NAMES.join(', ')}
 `;
 
 /** Commands that configure the tool and exit, usable outside a repository. */
@@ -75,7 +77,22 @@ async function runStandaloneCommand() {
     }
 
     if (flags.setup) {
-        await setupApiKey();
+        const {parts} = await inquirer.prompt([{
+            type: 'checkbox',
+            name: 'parts',
+            prefix: `\n ${chalk.bold.red('❯')}`,
+            suffix: '\n',
+            message: 'What would you like to set up?',
+            choices: [
+                {value: 'ai', name: 'AI commit messages (Google Gemini)', checked: true},
+                {value: 'jira', name: 'Jira issue linking', checked: false},
+            ],
+        }]);
+
+        if (parts.includes('ai')) await setupApiKey();
+        if (parts.includes('jira')) await setupJira();
+        if (!parts.length) console.log(chalk.dim('\n Nothing selected.\n'));
+
         return true;
     }
 
@@ -98,7 +115,7 @@ async function main() {
     if (flags.build) await build();
 
     const commitData = await sentence(paths);
-    const commitSentence = commitData.sentence + (commitData.issueId ? ` ${ISSUE_SEPARATOR} ${commitData.issueId}` : '');
+    const commitSentence = withIssue(commitData.sentence, commitData.issueId);
 
     console.log(`\n [ Your commit => ${chalk.green(commitSentence)} ] \n`);
 

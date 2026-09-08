@@ -2,7 +2,7 @@ import chalk from "chalk";
 import ora from "ora";
 import inquirer from "../prompts/register.js";
 import {readSettings, writeSettings} from "../store/handler.js";
-import {readClipboard, openUrl} from "../support/platform.js";
+import {maskSecret, secretFromText, offerFromClipboard, askSecret, openPageAndWaitForCopy} from "../support/secretSetup.js";
 
 const STORE = 'GoogleGenerativeAI';
 const KEY_PAGE = 'https://aistudio.google.com/app/apikey';
@@ -16,20 +16,12 @@ const STRICT_KEY = /^AIza[0-9A-Za-z_-]{35}$/;
 const LOOSE_KEY = /^AIza[0-9A-Za-z_-]{20,60}$/;
 
 /** Shows only the first and last characters, never the whole secret. */
-export const maskKey = (key) => {
-    if (!key || key.length < 12) return '••••';
-    return `${key.slice(0, 6)}${'•'.repeat(12)}${key.slice(-4)}`;
-}
+export const maskKey = (key) => maskSecret(key);
+
+const isKey = (value, {strict = true} = {}) => (strict ? STRICT_KEY : LOOSE_KEY).test(value);
 
 /** Picks a key-looking string out of arbitrary clipboard content. */
-export const keyFromText = (text, {strict = true} = {}) => {
-    if (!text) return null;
-
-    const candidate = text.trim().split(/\s+/)[0] ?? '';
-    const pattern = strict ? STRICT_KEY : LOOSE_KEY;
-
-    return pattern.test(candidate) ? candidate : null;
-}
+export const keyFromText = (text, {strict = true} = {}) => secretFromText(text, (value) => isKey(value, {strict}));
 
 const envKey = () => {
     for (const name of ENV_NAMES) {
@@ -76,18 +68,6 @@ export const validateKey = async (key) => {
     }
 }
 
-const askKeyInput = async (message) => {
-    const {key} = await inquirer.prompt([{
-        type: 'password',
-        name: 'key',
-        mask: '•',
-        prefix: `\n ${chalk.bold.red('❯')}`,
-        message,
-    }]);
-
-    return key?.trim() || null;
-}
-
 /** Verifies a key, stores it when it is good, and reports what happened. */
 const acceptKey = async (key) => {
     const spinner = ora('Checking the key ... \n').start();
@@ -127,20 +107,14 @@ export const setupApiKey = async () => {
     console.log(chalk.dim(' The free tier is enough for everyday use.\n'));
 
     // The key is usually already copied, so offer that before anything else.
-    const fromClipboard = keyFromText(readClipboard());
-    if (fromClipboard) {
-        const {useIt} = await inquirer.prompt([{
-            type: 'enhanced-confirm',
-            name: 'useIt',
-            prefix: ` ${chalk.bold.red('❯')}`,
-            message: `Found a key in your clipboard: ${chalk.cyan(maskKey(fromClipboard))}. Use it?`,
-            default: true,
-        }]);
+    const fromClipboard = await offerFromClipboard({
+        label: 'a Google API key',
+        detect: (value) => isKey(value),
+    });
 
-        if (useIt) {
-            const accepted = await acceptKey(fromClipboard);
-            if (accepted) return accepted;
-        }
+    if (fromClipboard) {
+        const accepted = await acceptKey(fromClipboard);
+        if (accepted) return accepted;
     }
 
     const {choice} = await inquirer.prompt([{
@@ -161,21 +135,12 @@ export const setupApiKey = async () => {
     }
 
     if (choice === 'browser') {
-        const opened = openUrl(KEY_PAGE);
-        console.log(opened
-            ? chalk.dim(`\n Opened ${KEY_PAGE}`)
-            : chalk.dim(`\n Open this page: ${chalk.cyan(KEY_PAGE)}`));
-        console.log(chalk.dim(' Create a key there and press the copy button.\n'));
+        const copied = await openPageAndWaitForCopy({
+            url: KEY_PAGE,
+            instruction: 'Create a key there and press the copy button.',
+            detect: (value) => isKey(value),
+        });
 
-        await inquirer.prompt([{
-            type: 'enhanced-confirm',
-            name: 'ready',
-            prefix: ` ${chalk.bold.red('❯')}`,
-            message: 'Press Enter once the key is copied',
-            default: true,
-        }]);
-
-        const copied = keyFromText(readClipboard());
         if (copied) {
             const accepted = await acceptKey(copied);
             if (accepted) return accepted;
@@ -184,13 +149,13 @@ export const setupApiKey = async () => {
         }
     }
 
-    const typed = await askKeyInput('Paste your Google API key:');
+    const typed = await askSecret('Paste your Google API key:');
     if (!typed) {
         disableAi();
         return null;
     }
 
-    if (!keyFromText(typed, {strict: false})) {
+    if (!isKey(typed, {strict: false})) {
         console.log(chalk.yellow("\n That does not look like a Google API key (they start with 'AIza'), checking it anyway."));
     }
 

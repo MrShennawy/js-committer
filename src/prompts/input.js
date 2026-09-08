@@ -54,7 +54,7 @@ export default class InputPrompt extends Base {
     let appendContent = '';
     let message = this.getQuestion();
 
-    if(this.opt.default && !this.opt.hint) this.opt.hint =  'Press TAB to edit the commit'
+    if(this.opt.default && !this.opt.hint) this.opt.hint = 'Press TAB to edit'
     const { transformer, hint } = this.opt;
     if (hint) {
       const messageSplinting = message.split('\n')

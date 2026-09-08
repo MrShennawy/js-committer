@@ -33,7 +33,7 @@ __Committer__ is a package that streamlines the process of crafting standard Git
 - 🔍 Interactive file selection for staged changes
 - 🔄 Re-use last commit message
 - 🏗️ Build integration support
-- 🎯 JIRA integration with automatic issue title fetching
+- 🎯 JIRA integration, with the issue key read from your branch name
 - 🚀 Streamlined git workflow
 - 🤖 AI-powered commit message generation, set up in a single keystroke
 - 🔑 Reads GEMINI_API_KEY / GOOGLE_API_KEY, and works fine without any key
@@ -51,7 +51,7 @@ The package provides the `cmt` command with several powerful options:
     cmt -b # Run a build command first, then commit
     cmt -jr # Commit with JIRA integration
     cmt --no-ai # Write the message yourself this once
-    cmt --setup # Set up or change the Google API key
+    cmt --setup # Connect the AI and Jira
     cmt --help # Show every option
 ```
 
@@ -64,10 +64,42 @@ The tool uses standard Git configuration and can be integrated with your existin
 
 ## JIRA Integration
 
-When using the `-jr` flag, Committer will:
-1. Connect to your JIRA instance
-2. Automatically fetch the issue title
-3. Include the JIRA issue reference in your commit message
+With the `-jr` flag, Committer attaches the issue to your commit and, after the
+push, comments the commit link back on the issue.
+
+### Choosing the issue without typing it
+
+The issue key is looked for in this order, so most commits need one keystroke:
+
+1. **Your branch name.** On `feature/SHEN-33-add-login` you are simply asked
+   `Use SHEN-33 from your branch name?` and press Enter.
+2. **Your own open issues.** If the branch says nothing, Committer lists the
+   issues assigned to you with their summaries and you pick one from the list.
+3. **Typing the key**, as a last resort.
+
+### Connecting Jira
+
+Credentials come from the first source that has them:
+
+1. `JIRA_HOST`, `JIRA_EMAIL` and `JIRA_API_TOKEN` in the environment, best for
+   CI and shared machines.
+2. Credentials saved by a previous run.
+3. A short walkthrough, run once, which is also available as `cmt --setup`.
+
+The walkthrough asks as little as possible:
+
+- **Address**: paste any Jira URL you have open, such as
+  `https://acme.atlassian.net/browse/AB-1`. It is reduced to the bare host.
+- **Email**: prefilled from your `git config user.email`, so it is usually
+  just Enter.
+- **Token**: offered straight from your clipboard when it is already there,
+  otherwise Committer opens the Atlassian token page for you and reads the
+  clipboard once you have copied it. Manual entry is hidden as you type.
+
+The credentials are verified against Jira before they are saved, and a wrong
+token lets you retry instead of throwing your input away. Jira is optional:
+declining is remembered, and an unreachable Jira never blocks a commit, the
+issue key is simply kept in the message.
 
 ## AI-Powered Commit Messages
 

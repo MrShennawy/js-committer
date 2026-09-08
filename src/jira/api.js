@@ -99,6 +99,24 @@ export default class JiraApi {
         }), {method: 'POST', body: {body: comment}});
     }
 
+    /**
+     * Runs a JQL search.
+     * Jira replaced /search with /search/jql, so the new path is tried first
+     * and the old one is used on instances that do not have it yet.
+     */
+    async searchIssues({jql, fields = 'summary,issuetype', maxResults = 15}) {
+        const query = {jql, fields, maxResults};
+
+        try {
+            return await this.doRequest(this.makeUri({pathname: '/search/jql', query}));
+        } catch (err) {
+            if (err.status === 404 || err.status === 410) {
+                return this.doRequest(this.makeUri({pathname: '/search', query}));
+            }
+            throw err;
+        }
+    }
+
     /** Describe the currently authenticated user. */
     getCurrentUser() {
         return this.doRequest(this.makeUri({pathname: '/myself'}));

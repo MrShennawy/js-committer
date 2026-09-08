@@ -2,6 +2,8 @@ import chalk from "chalk";
 import RequiredError from "../exceptions/RequiredError.js";
 import git, {hasCommits} from "../support/git.js";
 import flags from "../support/args.js";
+import branch from "./branch.js";
+import {splitIssue, withIssue, issueKeyFromBranch} from "../support/issueKey.js";
 
 const types = [
     {value: 'feat', short: 'feat', name: `${chalk.bold('feat:')} A new feature for the user.`},
@@ -14,8 +16,6 @@ const types = [
     {value: 'build', short: 'build', name: `${chalk.bold('build:')} Changes that affect the build system or external dependencies.`},
     {value: 'chore', short: 'chore', name: `${chalk.bold('chore:')} Other changes that don't modify src or test files.`},
 ];
-
-const ISSUE_SEPARATOR = '❯';
 
 // A conventional commit prefix: a type, an optional scope and an optional "!"
 // marking a breaking change, e.g. "feat", "fix(api)" or "refactor(core)!".
@@ -48,14 +48,8 @@ export const parseSubject = (subject) => {
         }
     }
 
-    const [sentence, issueId] = rest.split(ISSUE_SEPARATOR);
-    return {
-        type,
-        scope,
-        breaking,
-        sentence: (sentence ?? '').trim(),
-        issueId: issueId ? issueId.trim() : null,
-    };
+    const {sentence, issueId} = splitIssue(rest);
+    return {type, scope, breaking, sentence, issueId};
 };
 
 /** Rebuilds a subject from its parts, preserving any scope and breaking marker. */
@@ -82,7 +76,7 @@ const lastCommit = ({getIssueId = false, full = false, avoidArg = false} = {}) =
 
     // The type is part of the message now that it is no longer asked for
     // separately, so it belongs in the prefilled sentence.
-    return formatSubject(parsed);
+    return withIssue(formatSubject(parsed), parsed.issueId);
 };
 
 /** True when the value is one of the conventional commit types. */
@@ -137,16 +131,19 @@ const sentence = (def = null) => {
     }
 }
 
-const issueId = (def = null) => {
+const issueId = (def = null, {required = false} = {}) => {
+    // A branch such as "feature/SHEN-33-add-login" already names the issue.
+    const fromBranch = issueKeyFromBranch(branch.current());
+
     return {
         type: 'default-editable-input',
         name: 'issueId',
-        default: def ?? lastCommit({getIssueId: true}),
+        default: def ?? fromBranch ?? lastCommit({getIssueId: true}),
         prefix: `\n ${chalk.bold.red('❯')}`,
         suffix: "\n",
-        message: 'Enter the issue ID: ' + (!flags.jira ? chalk.dim('(optional)') : ''),
+        message: 'Enter the issue ID: ' + (required ? '' : chalk.dim('(optional)')),
         validate: (value) => {
-            if (flags.jira && !value) throw new RequiredError('Issue id is required');
+            if (required && !value) throw new RequiredError('Issue id is required');
             return true;
         }
     }
