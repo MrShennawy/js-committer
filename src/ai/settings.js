@@ -21,6 +21,8 @@ export const keyFromText = (text, provider, {strict = true} = {}) => {
     return secretFromText(text, (value) => pattern.test(value));
 }
 
+const providerName = (provider) => provider.label.split(' (')[0];
+
 const read = () => {
     const stored = readSettings(STORE);
 
@@ -61,26 +63,39 @@ const envKey = (provider) => {
     return null;
 }
 
+/** Network trouble is not the same as a credential being wrong. */
+const isUnreachable = (err) => (
+    /fetch failed|ENOTFOUND|ECONNREFUSED|did not answer|no Ollama server/i.test(err.message)
+);
+
 /**
- * Checks a key by asking the provider to generate one token.
- * @returns {Promise<{valid: boolean, reason: string|null, offline?: boolean}>}
+ * Checks a credential by asking the provider which models it offers.
+ *
+ * Listing is the right question: it proves the credential works without
+ * depending on any one model being available to this account, and it returns
+ * the list needed for the next step. Generating with an assumed model instead
+ * reports a perfectly good key as rejected the moment that model is not
+ * enabled, which is exactly what used to happen.
+ *
+ * @returns {Promise<{valid: boolean, reason: string|null, offline?: boolean, models?: string[]}>}
  */
-export const validateKey = async (provider, apiKey, {model, baseUrl} = {}) => {
+export const validateKey = async (provider, apiKey, {baseUrl} = {}) => {
     try {
-        await provider.generate({prompt: 'Reply with the single word: ok', apiKey, model, baseUrl});
-        return {valid: true, reason: null};
+        const models = await provider.listModels({apiKey, baseUrl});
+        return {valid: true, reason: null, models};
     } catch (err) {
-        // Being unable to reach the service is not the same as a bad key.
-        if (/fetch failed|ENOTFOUND|ECONNREFUSED|did not answer/i.test(err.message)) {
-            return {valid: false, reason: err.message, offline: true};
-        }
+        if (isUnreachable(err)) return {valid: false, reason: err.message, offline: true};
         return {valid: false, reason: err.message};
     }
 }
 
+/**
+ * Verifies a key and stores it.
+ * @returns {Promise<{key: string, models: string[]}|null>}
+ */
 const acceptKey = async (provider, key, extras = {}) => {
-    const spinner = ora(`Checking the ${provider.label.split(' (')[0]} key ... \n`).start();
-    const {valid, reason, offline} = await validateKey(provider, key, extras);
+    const spinner = ora(`Checking the ${providerName(provider)} key ... \n`).start();
+    const {valid, reason, offline, models} = await validateKey(provider, key, extras);
 
     if (valid || offline) {
         spinner.text = valid
@@ -88,8 +103,8 @@ const acceptKey = async (provider, key, extras = {}) => {
             : chalk.yellow('Could not reach the provider to verify the key, saving it anyway.');
         valid ? spinner.succeed() : spinner.warn();
 
-        write({provider: provider.id, keys: {[provider.id]: key}, aiDisabled: false, ...extras});
-        return key;
+        write({provider: provider.id, keys: {[provider.id]: key}, aiDisabled: false});
+        return {key, models: models ?? []};
     }
 
     spinner.text = chalk.red(`The key was rejected: ${reason}`);
@@ -101,32 +116,38 @@ const acceptKey = async (provider, key, extras = {}) => {
  * Asks which model to use, from the list the provider really offers.
  *
  * Model availability differs by key, by account and, for a local server, by
- * what has been pulled, so guessing a default is how you end up with a 404
- * that reads like a broken URL.
+ * what has been pulled, so assuming a default is how you end up with a 404
+ * that reads like a broken key.
  *
+ * @param {object} provider
+ * @param {{apiKey?: string, baseUrl?: string, models?: string[]}} options
+ *   models, when given, is a list already fetched while verifying the key
  * @returns {Promise<string|null>} the chosen model, or null to keep the default
  */
-export const chooseModel = async (provider, {apiKey, baseUrl} = {}) => {
+export const chooseModel = async (provider, {apiKey, baseUrl, models: known = null} = {}) => {
     if (typeof provider.listModels !== 'function') return null;
 
-    const spinner = ora('Looking up the available models ... \n').start();
+    let models = known?.length ? known : null;
 
-    let models = [];
-    try {
-        models = await provider.listModels({apiKey, baseUrl});
-    } catch (err) {
-        spinner.text = chalk.yellow(`Could not list the models: ${err.message}`);
-        spinner.warn();
+    if (!models) {
+        const spinner = ora('Looking up the available models ... \n').start();
 
-        if (provider.local) {
-            console.log(chalk.dim(` Pull one with ${chalk.cyan('ollama pull llama3.2')} and run ${chalk.cyan('cmt --setup')} again.\n`));
+        try {
+            models = await provider.listModels({apiKey, baseUrl});
+            spinner.stop();
+        } catch (err) {
+            spinner.text = chalk.yellow(`Could not list the models: ${err.message}`);
+            spinner.warn();
+
+            if (provider.local) {
+                console.log(chalk.dim(` Pull one with ${chalk.cyan('ollama pull llama3.2')} and run ${chalk.cyan('cmt --setup')} again.\n`));
+            }
+            return null;
         }
-        return null;
     }
 
     if (!models.length) {
-        spinner.text = chalk.yellow('That provider reported no usable models.');
-        spinner.warn();
+        console.log(chalk.yellow('\n That provider reported no usable models.'));
 
         if (provider.local) {
             console.log(chalk.dim(` Install one with ${chalk.cyan('ollama pull llama3.2')}, then run ${chalk.cyan('cmt --setup')} again.\n`));
@@ -134,9 +155,8 @@ export const chooseModel = async (provider, {apiKey, baseUrl} = {}) => {
         return null;
     }
 
-    spinner.stop();
-
-    // Offer the provider's own default first when it is genuinely available.
+    // Offer the provider's own default first, but only when it is genuinely
+    // available; otherwise it is just the wrong answer at the top of the list.
     const ordered = models.includes(provider.defaultModel)
         ? [provider.defaultModel, ...models.filter(name => name !== provider.defaultModel)]
         : models;
@@ -181,7 +201,7 @@ const chooseProvider = async () => {
 /** Collects a key for a hosted provider, preferring the clipboard. */
 const collectKey = async (provider) => {
     const fromClipboard = await offerFromClipboard({
-        label: `a ${provider.label.split(' (')[0]} key`,
+        label: `a ${providerName(provider)} key`,
         detect: (value) => Boolean(provider.keyPattern?.test(value)),
     });
     if (fromClipboard) return fromClipboard;
@@ -211,7 +231,7 @@ const collectKey = async (provider) => {
         console.log(chalk.dim('\n Nothing key-shaped in the clipboard, paste it below instead.'));
     }
 
-    const typed = await askSecret(`Paste your ${provider.label.split(' (')[0]} key:`);
+    const typed = await askSecret(`Paste your ${providerName(provider)} key:`);
     if (typed && provider.loosePattern && !provider.loosePattern.test(typed)) {
         console.log(chalk.yellow(`\n That does not look like a key for this provider (${provider.keyHint}), checking it anyway.`));
     }
@@ -220,29 +240,26 @@ const collectKey = async (provider) => {
 }
 
 /** Confirms a local provider is reachable and picks one of its models. */
-const setupLocalProvider = async (provider) => {
+const setupLocalProvider = async (provider, {baseUrl} = {}) => {
     console.log(chalk.dim(`\n ${provider.label}`));
 
-    const model = await chooseModel(provider);
+    const spinner = ora('Looking for the local models ... \n').start();
+    const {valid, reason, models} = await validateKey(provider, null, {baseUrl});
 
-    if (!model) {
-        // Saved regardless: the server may simply not be running yet.
+    if (!valid) {
+        spinner.text = chalk.yellow(`Could not reach it: ${reason}`);
+        spinner.warn();
+        console.log(chalk.dim(` Saved anyway; it will be used once the server is running.\n`));
         write({provider: provider.id, aiDisabled: false});
         return true;
     }
 
-    const spinner = ora(`Checking ${model} ... \n`).start();
-    const {valid, reason} = await validateKey(provider, null, {model});
+    spinner.stop();
 
-    if (valid) {
-        spinner.text = chalk.green(`${model} answered.`);
-        spinner.succeed();
-    } else {
-        spinner.text = chalk.yellow(`Could not use it: ${reason}`);
-        spinner.warn();
-    }
+    const model = await chooseModel(provider, {baseUrl, models});
+    write({provider: provider.id, aiDisabled: false, ...(model ? {model} : {})});
 
-    write({provider: provider.id, model, aiDisabled: false});
+    if (model) console.log(chalk.green(`\n Using ${model}.\n`));
     return true;
 }
 
@@ -260,9 +277,10 @@ export const setupAi = async () => {
     }
 
     const provider = getProvider(choice);
+    const baseUrl = loadConfig().ai.baseUrl ?? read().baseUrl ?? null;
 
     if (!provider.needsKey) {
-        await setupLocalProvider(provider);
+        await setupLocalProvider(provider, {baseUrl});
         return {provider, apiKey: null};
     }
 
@@ -272,13 +290,13 @@ export const setupAi = async () => {
         return null;
     }
 
-    const accepted = await acceptKey(provider, key);
+    const accepted = await acceptKey(provider, key, {baseUrl});
     if (!accepted) return null;
 
-    const model = await chooseModel(provider, {apiKey: accepted});
+    const model = await chooseModel(provider, {apiKey: accepted.key, baseUrl, models: accepted.models});
     if (model) write({model});
 
-    return {provider, apiKey: accepted, model};
+    return {provider, apiKey: accepted.key, model};
 }
 
 /**
@@ -326,6 +344,10 @@ export const clearApiKey = () => {
 }
 
 /** Stores a key given on the command line, after verifying it. */
-export const setApiKeyDirectly = async (key) => acceptKey(activeProvider(), key.trim());
+export const setApiKeyDirectly = async (key) => {
+    const baseUrl = loadConfig().ai.baseUrl ?? null;
+    const accepted = await acceptKey(activeProvider(), key.trim(), {baseUrl});
+    return accepted ? accepted.key : null;
+}
 
 export const ENV_VARIABLE_NAMES = providerList().flatMap(provider => provider.envNames ?? []);
