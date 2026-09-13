@@ -54,4 +54,39 @@ export const flags = {
     version: has('-v', '--version'),
 };
 
+// Everything the tool answers to. A typo such as --amned used to be ignored in
+// silence, which meant asking for an amend and quietly getting a new commit.
+const KNOWN = new Set([
+    '-s', '-b', '-jr', '-lc', '-y', '-n', '-h', '-v',
+    '--setup', '--no-ai', '--set-key', '--yes', '--amend',
+    '--dry-run', '--undo', '--split', '--help', '--version',
+]);
+
+// The value of --set-key is an argument, not a flag, so it is not checked.
+const VALUE_OWNERS = new Set(['--set-key']);
+
+/** Arguments that are not flags this tool knows, in the order they were given. */
+export const unknownFlags = () => {
+    const found = [];
+
+    for (let index = 0; index < argv.length; index++) {
+        const arg = argv[index];
+        if (!arg.startsWith('-')) continue;
+
+        const name = arg.includes('=') ? arg.slice(0, arg.indexOf('=')) : arg;
+        if (!KNOWN.has(name)) {
+            found.push(arg);
+            continue;
+        }
+
+        // Step over the value that belongs to this flag, when it was given as
+        // a separate argument rather than with "=".
+        if (VALUE_OWNERS.has(name) && !arg.includes('=')) index++;
+    }
+
+    return found;
+}
+
+flags.unknown = unknownFlags();
+
 export default flags;

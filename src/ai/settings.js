@@ -337,16 +337,44 @@ export const resolveAi = async ({interactive = true} = {}) => {
     };
 }
 
-/** Clears the stored key for the active provider. */
+/**
+ * Clears the stored key for the active provider.
+ * @returns {boolean} false when the key in force came from the environment,
+ *   which this tool did not write and must not claim to have removed
+ */
 export const clearApiKey = () => {
     const provider = activeProvider();
+    if (envKey(provider)) return false;
+
     write({keys: {[provider.id]: null}});
+    return true;
 }
+
+/**
+ * The provider a key belongs to, read from its shape.
+ *
+ * Without this, `cmt --set-key sk-ant-...` is checked against whichever
+ * provider happens to be active, and a perfectly good key is reported as
+ * rejected because it was sent to the wrong API.
+ */
+export const providerForKey = (key) => (
+    providerList().find(provider => provider.keyPattern?.test(key))
+    ?? providerList().find(provider => provider.loosePattern?.test(key))
+    ?? null
+);
 
 /** Stores a key given on the command line, after verifying it. */
 export const setApiKeyDirectly = async (key) => {
+    const trimmed = key.trim();
     const baseUrl = loadConfig().ai.baseUrl ?? null;
-    const accepted = await acceptKey(activeProvider(), key.trim(), {baseUrl});
+
+    // A project that names its provider has made the choice for everyone; only
+    // fall back to reading the key's shape when it has not.
+    const provider = loadConfig().ai.provider
+        ? activeProvider()
+        : (providerForKey(trimmed) ?? activeProvider());
+
+    const accepted = await acceptKey(provider, trimmed, {baseUrl});
     return accepted ? accepted.key : null;
 }
 

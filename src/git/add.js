@@ -2,6 +2,7 @@ import chalk from "chalk";
 import inquirer from "../prompts/register.js";
 import {confirm} from "../prompts/ask.js";
 import status from "./status.js";
+import diff from "./diff.js";
 import RequiredError from "../exceptions/RequiredError.js";
 import git from "../support/git.js";
 
@@ -19,13 +20,19 @@ const askForCommit = () => confirm({
  * @param {string[]} paths
  */
 const command = async (paths = ['.']) => {
-    // Declining is a normal cancellation, not a failure.
+    // Declining is a normal cancellation, not a failure, and it has to leave
+    // the index exactly as it was found.
     if (!await askForCommit()) {
+        diff.forgetNewFiles();
         console.log(chalk.dim('\nAborted, nothing was committed.\n'));
         process.exit(0);
     }
 
-    return git(['add', '--', ...paths]);
+    const result = git(['add', '--', ...paths]);
+    // The content is staged properly now, so there is nothing left to undo.
+    diff.keepNewFiles();
+
+    return result;
 }
 
 const files = async () => {

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {maskKey, keyFromText} from '../src/ai/settings.js';
+import {maskKey, keyFromText, providerForKey} from '../src/ai/settings.js';
 import {getProvider, providerList} from '../src/ai/providers/index.js';
 
 const gemini = getProvider('gemini');
@@ -59,4 +59,17 @@ test('every provider declares the fields the rest of the code relies on', () => 
 
 test('an unknown provider name falls back to the default', () => {
     assert.equal(getProvider('nope').id, 'gemini');
+});
+
+test('a key given on the command line is matched to the API it belongs to', () => {
+    // Checking an Anthropic key against Gemini reports a working key as
+    // rejected, which reads like the key is bad rather than the destination.
+    assert.equal(providerForKey(GEMINI_KEY)?.id, 'gemini');
+    assert.equal(providerForKey(OPENAI_KEY)?.id, 'openai');
+    assert.equal(providerForKey(ANTHROPIC_KEY)?.id, 'anthropic');
+
+    // sk-ant- is also an 'sk-' key, so the more specific pattern has to win.
+    assert.notEqual(providerForKey(ANTHROPIC_KEY)?.id, 'openai');
+
+    assert.equal(providerForKey('not-a-key'), null, 'nothing recognisable means no guess');
 });

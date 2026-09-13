@@ -134,7 +134,9 @@ const askToken = async () => {
 }
 
 const disableJira = () => {
-    writeSettings(STORE, {jiraDisabled: true});
+    // Merged rather than replaced: turning Jira off is not a reason to throw
+    // away a host, email and token that were working a moment ago.
+    writeSettings(STORE, {...readSettings(STORE), jiraDisabled: true});
     console.log(chalk.dim(`\n Jira is off. Run ${chalk.cyan('cmt --setup')} whenever you want to connect it.\n`));
 }
 

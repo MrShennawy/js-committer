@@ -71,3 +71,31 @@ test('an unusable answer produces no plan rather than a broken one', () => {
     assert.deepEqual(parseGroups('', ACTUAL), []);
     assert.deepEqual(parseGroups(JSON.stringify({groups: 'nope'}), ACTUAL), []);
 });
+
+test('both halves of a rename are committed together', () => {
+    // git reports a rename as one record naming the destination. Staging only
+    // that commits the new file and leaves the deletion of the old one behind,
+    // uncommitted, after the split is supposedly finished.
+    const renamedFrom = new Map([['src/b.js', 'src/was-b.js']]);
+
+    const reply = JSON.stringify({groups: [
+        {message: 'refactor: rename b', files: ['src/b.js']},
+        {message: 'feat: add a', files: ['src/a.js', 'test/a.test.js', 'package.json']},
+    ]});
+
+    const groups = parseGroups(reply, ACTUAL, renamedFrom);
+
+    assert.deepEqual(groups[0].files, ['src/was-b.js', 'src/b.js']);
+    assert.ok(!groups[1].files.includes('src/was-b.js'), 'the source belongs to one commit only');
+});
+
+test('a rename the model did not mention is still not lost', () => {
+    const renamedFrom = new Map([['src/b.js', 'src/was-b.js']]);
+    const reply = JSON.stringify({groups: [{message: 'feat: add a', files: ['src/a.js']}]});
+
+    const committed = parseGroups(reply, ACTUAL, renamedFrom).flatMap(group => group.files);
+
+    for (const path of [...ACTUAL, 'src/was-b.js']) {
+        assert.ok(committed.includes(path), `${path} must be committed`);
+    }
+});

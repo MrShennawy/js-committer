@@ -14,12 +14,14 @@ __Committer__ is a package that streamlines the process of crafting standard Git
 1. [Installation](#installation)
 2. [Features](#features)
 3. [Usage](#usage)
-4. [Configuration](#configuration)
-5. [JIRA Integration](#jira-integration)
-6. [AI-Powered Commit Messages](#ai-powered-commit-messages)
-7. [Authors](#authors)
-8. [Contributing](#contributing)
-9. [License](#license)
+4. [Splitting a change](#splitting-a-change)
+5. [Safety checks](#safety-checks)
+6. [Project configuration](#project-configuration)
+7. [JIRA Integration](#jira-integration)
+8. [AI-Powered Commit Messages](#ai-powered-commit-messages)
+9. [Authors](#authors)
+10. [Contributing](#contributing)
+11. [License](#license)
 
 ## Installation
 ``` bash
@@ -65,7 +67,13 @@ The package provides the `cmt` command with several powerful options:
     cmt --help # Show every option
 ```
 
-The flags can be combined, for example `cmt -s -b -jr`.
+The flags can be combined, for example `cmt -s -b -jr`. An option Committer does
+not recognise stops the run and says so, because a mistyped `--amned` would
+otherwise quietly make an ordinary commit instead of amending.
+
+Stopping is always free: `--dry-run`, a declined confirmation and Ctrl-C all
+leave your index exactly as they found it, including files that were untracked
+when the run began.
 
 ## Splitting a change
 
@@ -127,10 +135,6 @@ project's rather than each person's. Every key is optional:
 }
 ```
 
-
-## Configuration
-
-The tool uses standard Git configuration and can be integrated with your existing Git workflow. For JIRA integration, ensure your credentials are properly configured.
 
 ## JIRA Integration
 
@@ -264,7 +268,10 @@ or continue without AI. The key is verified against Google before it is saved,
 so a wrong paste is reported immediately rather than halfway through a commit.
 
 `cmt --setup` runs the walkthrough again at any time, and `cmt --set-key KEY`
-stores a key without it.
+stores a key without it. The provider is recognised from the key itself, so an
+OpenAI or Anthropic key is checked against its own API rather than whichever
+provider happens to be selected. A key set in `.committerrc.json` is the
+project's decision and still wins.
 
 ### Working without AI
 

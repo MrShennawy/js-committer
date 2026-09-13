@@ -3,7 +3,7 @@ import ora from "ora";
 import chalk from "chalk";
 import {confirm} from "../prompts/ask.js";
 import branch from "./branch.js";
-import git from "../support/git.js";
+import git, {hasRemote} from "../support/git.js";
 
 const askForPush = () => confirm({
     name: 'runPush',
@@ -20,6 +20,10 @@ const pushArgs = () => {
 }
 
 const command = async () => {
+    // Offering to push a repository with no remote only ever ends in git's
+    // "Could not read from remote repository", after the commit is already made.
+    if (!hasRemote()) return false;
+
     if (!await askForPush()) return false;
 
     console.log();

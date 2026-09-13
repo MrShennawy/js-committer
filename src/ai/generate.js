@@ -158,7 +158,14 @@ export const resolveMessage = (text, guessedType, summary = null) => {
         return {message: formatSubject({type: fallbackType, sentence: description}), corrected: true};
     }
 
-    return {message: formatSubject(parsed), corrected: false};
+    // A project that lists its scopes means that list. The model is asked not
+    // to invent one, but it does, and an unlisted scope is worse than none.
+    const allowed = loadConfig().scopes;
+    const scope = parsed.scope && allowed.length && !allowed.includes(parsed.scope)
+        ? null
+        : parsed.scope;
+
+    return {message: formatSubject({...parsed, scope}), corrected: scope !== parsed.scope};
 };
 
 /**
@@ -263,6 +270,23 @@ export const generateCommitMessage = async (paths, context) => {
 };
 
 /**
+ * Recognises the credential being refused, as each provider reports it.
+ *
+ * Gemini answers 400 with a details entry, OpenAI and Anthropic answer 401,
+ * and all three put something quotable in the message. A 403 is deliberately
+ * not included: that is a key that works but lacks a permission, and throwing
+ * it away would be the wrong repair.
+ */
+const isRejectedKey = (err) => {
+    if (err?.status === 401) return true;
+
+    const details = err?.payload?.error?.details;
+    if (Array.isArray(details) && details.some(detail => detail?.reason === 'API_KEY_INVALID')) return true;
+
+    return /api[ _-]?key not valid|invalid[ _-]api[ _-]key|invalid_api_key|incorrect api key/i.test(err?.message ?? '');
+}
+
+/**
  * Prints a readable error.
  * The raw error object is never logged, because it can contain the request
  * URL together with the API key.
@@ -270,26 +294,16 @@ export const generateCommitMessage = async (paths, context) => {
  * @returns {boolean} true when the stored key was invalid and has been cleared
  */
 const handleError = (err) => {
-    let errorMessage = 'An unknown error occurred.';
-    let invalidKey = false;
-
-    if (Array.isArray(err?.errorDetails)) {
-        for (const detail of err.errorDetails) {
-            if (detail.reason === 'API_KEY_INVALID') {
-                clearApiKey();
-                errorMessage = `API key not valid, it has been removed. Run ${chalk.cyan('cmt --setup')} to add a new one.`;
-                invalidKey = true;
-                break;
-            }
-            if (detail['@type'] === 'type.googleapis.com/google.rpc.LocalizedMessage' && detail.message) {
-                errorMessage = detail.message;
-                break;
-            }
-        }
-    } else if (err?.message) {
-        errorMessage = err.message;
+    // The providers talk to the REST endpoints directly, so a rejected key
+    // arrives as a status and a payload rather than as an SDK error object.
+    if (isRejectedKey(err)) {
+        const removed = clearApiKey();
+        console.error(chalk.red.bold(removed
+            ? `The API key was rejected, so it has been removed. Run ${chalk.cyan('cmt --setup')} to add a new one.`
+            : 'The API key was rejected. It comes from your environment, so change it there.'));
+        return true;
     }
 
-    console.error(`${chalk.red.bold(errorMessage)}`);
-    return invalidKey;
+    console.error(chalk.red.bold(err?.message || 'An unknown error occurred.'));
+    return false;
 }

@@ -2,7 +2,7 @@
 import chalk from "chalk";
 import inquirer from "./prompts/register.js";
 import {greetings} from "./misc/greetings.js";
-import {isInsideRepo} from "./support/git.js";
+import {isInsideRepo, hasRemote} from "./support/git.js";
 import flags from "./support/args.js";
 import add from "./git/add.js";
 import commit, {commitLink} from "./git/commit.js";
@@ -21,6 +21,7 @@ import {undoLastCommit} from "./git/undo.js";
 import {version} from "./support/pkg.js";
 import {runGuards} from "./questions/guards.js";
 import splitCommits from "./questions/split.js";
+import gitDiff from "./git/diff.js";
 
 /** Atlassian document format body for the "commit link" comment. */
 const commitComment = (link, description) => ({
@@ -64,13 +65,26 @@ const HELP = `
 
  ${chalk.yellow('Setup')}
    cmt --setup         connect the AI and Jira
-   cmt --set-key KEY   store a Google API key directly
+   cmt --set-key KEY   store an API key directly
 
    Credentials in the environment are picked up automatically, which is the
    best option for CI and shared machines:
      AI    ${ENV_VARIABLE_NAMES.join(', ')}
      Jira  ${JIRA_ENV_NAMES.join(', ')}
 `;
+
+/**
+ * Stops on an argument the tool does not recognise.
+ * Carrying on would do something other than what was asked for: --amned is not
+ * an amend, it is an ordinary commit that the person did not want.
+ */
+function rejectUnknownFlags() {
+    if (!flags.unknown.length) return;
+
+    console.error(chalk.red(`\n Unknown ${flags.unknown.length > 1 ? 'options' : 'option'}: ${flags.unknown.join(', ')}`));
+    console.error(chalk.dim(` Run ${chalk.cyan('cmt --help')} to see what is available.\n`));
+    process.exit(1);
+}
 
 /** Commands that configure the tool and exit, usable outside a repository. */
 async function runStandaloneCommand() {
@@ -125,6 +139,10 @@ async function runStandaloneCommand() {
 
 /** Prints the plan for --dry-run without touching the repository. */
 function reportDryRun(paths, commitSentence) {
+    // Reading the change had to register new files in the index to see them at
+    // all; putting them back is what makes "nothing was changed" true.
+    gitDiff.forgetNewFiles();
+
     console.log(chalk.yellow('\n Dry run, nothing was changed.\n'));
     console.log(` ${chalk.yellow('Would stage:')}  ${paths.join(', ')}`);
     console.log(` ${chalk.yellow('Would commit:')} ${chalk.green(commitSentence)}`);
@@ -132,6 +150,8 @@ function reportDryRun(paths, commitSentence) {
 }
 
 async function main() {
+    rejectUnknownFlags();
+
     if (await runStandaloneCommand()) return;
 
     if (!isInsideRepo()) {
@@ -155,12 +175,13 @@ async function main() {
     greetings();
 
     // The network round trip overlaps with the questions that follow.
-    if (!flags.dryRun) fetch.prefetch();
+    if (!flags.dryRun && hasRemote()) fetch.prefetch();
 
     const paths = await files();
 
     // Protected branch and secret checks, before anything is written.
     if (!await runGuards(paths)) {
+        gitDiff.forgetNewFiles();
         console.log(chalk.dim(' Stopped, nothing was committed.\n'));
         process.exit(0);
     }
@@ -168,6 +189,8 @@ async function main() {
     // --split makes its own commits, then rejoins the flow at the pull.
     if (flags.split && !flags.amend && !flags.dryRun) {
         if (await splitCommits(paths)) {
+            // The commits are made; a later failure must not reset these paths.
+            gitDiff.keepNewFiles();
             await pull.command();
             const pushed = await push.command();
             const url = commitLink();
@@ -219,6 +242,8 @@ async function main() {
 // Restore the terminal cursor that ora hides before leaving.
 const exitGracefully = () => {
     process.stdout.write('\x1B[?25h'); // show the cursor again
+    // Ctrl-C in the middle of the questions must not leave the index changed.
+    gitDiff.forgetNewFiles();
     console.log('\nExiting gracefully...');
     process.exit(0);
 };
@@ -228,6 +253,7 @@ process.on('SIGTERM', exitGracefully);
 
 main().catch(err => {
     process.stdout.write('\x1B[?25h'); // show the cursor again
+    gitDiff.forgetNewFiles();
     console.error(chalk.red(`\nError: ${err?.message ?? err}\n`));
     process.exit(1);
 });

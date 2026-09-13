@@ -112,6 +112,14 @@ export default async (paths = ['.']) => {
 
     if (body && !flags.yes) body = await confirmBody(body);
 
+    // The project states a limit; saying nothing when it is passed makes the
+    // setting look like it does something when it does not.
+    if (message.trim().length > config.maxSubjectLength) {
+        console.log(chalk.dim(
+            `\n The subject is ${message.trim().length} characters, over this project's limit of ${config.maxSubjectLength}.`
+        ));
+    }
+
     const parsed = parseSubject(message);
 
     const output = {
@@ -123,6 +131,16 @@ export default async (paths = ['.']) => {
 
     if (flags.yes) {
         output.issueId = output.issueId || issueKeyFromBranch(branch.current()) || null;
+
+        // Nobody is there to be asked, so a missing issue has to stop the run
+        // rather than quietly produce the commit the project said it forbids.
+        if (config.requireIssue && !output.issueId) {
+            throw new Error(
+                'this project requires an issue reference and none was found. ' +
+                'Name the branch after the issue, or run without --yes to type one.'
+            );
+        }
+
         return output;
     }
 

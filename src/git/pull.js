@@ -4,7 +4,7 @@ import chalk from "chalk";
 import {confirm} from "../prompts/ask.js";
 import fetch from "./fetch.js";
 import config from "./config.js";
-import git, {isBehindRemote} from "../support/git.js";
+import git, {isBehindRemote, hasRemote} from "../support/git.js";
 
 const askForPull = () => confirm({
     name: 'runPull',
@@ -32,6 +32,9 @@ const reportConflicts = (output) => {
 }
 
 const command = async () => {
+    // Nothing to fetch and nothing to be behind when there is no remote.
+    if (!hasRemote()) return false;
+
     await fetch.command();
 
     // Compare revisions instead of reading git's English status text, which

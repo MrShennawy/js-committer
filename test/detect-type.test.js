@@ -50,8 +50,10 @@ test('every detected type is a real commit type', () => {
 test('parseNameStatus reads renames and plain changes', () => {
     const output = 'M\tsrc/app.js\nA\tsrc/new.js\nR100\tsrc/old.js\tsrc/renamed.js';
     assert.deepEqual(diff.parseNameStatus(output), [
-        {status: 'M', path: 'src/app.js'},
-        {status: 'A', path: 'src/new.js'},
-        {status: 'R', path: 'src/renamed.js'},
+        {status: 'M', path: 'src/app.js', origPath: null},
+        {status: 'A', path: 'src/new.js', origPath: null},
+        // Where a rename came from matters: staging only the destination
+        // commits the new file and leaves the deletion behind.
+        {status: 'R', path: 'src/renamed.js', origPath: 'src/old.js'},
     ]);
 });

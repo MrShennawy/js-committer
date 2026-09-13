@@ -36,6 +36,14 @@ export const git = (args, {allowFail = false, trim = true} = {}) => {
 /** True when the current directory is inside a git working tree. */
 export const isInsideRepo = () => git(['rev-parse', '--is-inside-work-tree'], {allowFail: true}) === 'true';
 
+/**
+ * True when the repository has somewhere to push to.
+ * Without this, a local only repository ends every commit with git's
+ * "Could not read from remote repository" and a failing exit code, which reads
+ * like the commit went wrong when it did not.
+ */
+export const hasRemote = () => Boolean(git(['remote'], {allowFail: true}));
+
 /** True when the repository already has at least one commit. */
 export const hasCommits = () => git(['rev-parse', '--verify', 'HEAD'], {allowFail: true}) !== null;
 

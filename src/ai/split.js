@@ -48,9 +48,11 @@ Reply with JSON only, no prose and no code fences:
  *
  * @param {string} reply
  * @param {string[]} actualPaths
+ * @param {Map<string, string>} renamedFrom - destination path to the path it
+ *   was renamed from, so both halves of a rename land in the same commit
  * @returns {{message: string, files: string[]}[]}
  */
-export const parseGroups = (reply, actualPaths) => {
+export const parseGroups = (reply, actualPaths, renamedFrom = new Map()) => {
     const text = (reply ?? '').replace(/```[a-z]*\n?|```/gi, '').trim();
     const start = text.indexOf('{');
     const end = text.lastIndexOf('}');
@@ -77,11 +79,30 @@ export const parseGroups = (reply, actualPaths) => {
         if (!files.length) continue;
 
         files.forEach(file => used.add(file));
-        groups.push({message: group.message.trim(), files});
+
+        // A rename is one change in two places: staging the destination without
+        // the source commits the new file and leaves the deletion uncommitted.
+        const staged = [];
+        for (const file of files) {
+            const origin = renamedFrom.get(file);
+            if (origin && !used.has(origin)) {
+                used.add(origin);
+                staged.push(origin);
+            }
+            staged.push(file);
+        }
+
+        groups.push({message: group.message.trim(), files: staged});
     }
 
-    // Whatever the model forgot still has to be committed.
-    const missing = actualPaths.filter(path => !used.has(path));
+    // Whatever the model forgot still has to be committed, renames included.
+    const missing = actualPaths
+        .filter(path => !used.has(path))
+        .flatMap(path => {
+            const origin = renamedFrom.get(path);
+            return origin && !used.has(origin) ? [origin, path] : [path];
+        });
+
     if (missing.length) {
         groups.push({message: 'chore: remaining changes', files: missing});
     }
@@ -119,6 +140,9 @@ const normaliseGroup = (group, files) => {
 export const planCommits = async (paths = ['.']) => {
     const collected = gitDiff.collect(paths);
     const actualPaths = collected.files.map(file => file.path);
+    const renamedFrom = new Map(
+        collected.files.filter(file => file.origPath).map(file => [file.path, file.origPath])
+    );
 
     if (actualPaths.length < 2) {
         return {groups: [], reason: 'there is only one changed file'};
@@ -138,7 +162,8 @@ export const planCommits = async (paths = ['.']) => {
             baseUrl: ai.baseUrl,
         });
 
-        const groups = parseGroups(reply, actualPaths).map(group => normaliseGroup(group, collected.files));
+        const groups = parseGroups(reply, actualPaths, renamedFrom)
+            .map(group => normaliseGroup(group, collected.files));
 
         if (groups.length < 2) {
             spinner.text = chalk.yellow('This looks like a single commit.');
